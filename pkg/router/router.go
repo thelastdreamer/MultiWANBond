@@ -15,7 +15,7 @@ type Router struct {
 	wans            map[uint8]*protocol.WANInterface
 	mode            protocol.LoadBalanceMode
 	currentWAN      uint8 // For round-robin
-	flowMap         map[protocol.FlowKey]uint8
+	flowMap         map[string]uint8 // flow key string -> WAN ID
 	metrics         map[uint8]*protocol.WANMetrics
 	bandwidthUsage  map[uint8]uint64
 	lastCleanup     time.Time
@@ -26,7 +26,7 @@ func NewRouter(mode protocol.LoadBalanceMode) *Router {
 	return &Router{
 		wans:           make(map[uint8]*protocol.WANInterface),
 		mode:           mode,
-		flowMap:        make(map[protocol.FlowKey]uint8),
+		flowMap:        make(map[string]uint8),
 		metrics:        make(map[uint8]*protocol.WANMetrics),
 		bandwidthUsage: make(map[uint8]uint64),
 		lastCleanup:    time.Now(),
@@ -234,8 +234,11 @@ func (r *Router) routeLeastLatency(availableWANs []uint8) uint8 {
 
 // routePerFlow implements consistent per-flow routing
 func (r *Router) routePerFlow(flowKey *protocol.FlowKey, availableWANs []uint8) uint8 {
+	// Convert flow key to string for map lookup
+	flowKeyStr := flowKey.String()
+
 	// Check if we already have a WAN for this flow
-	if wanID, exists := r.flowMap[*flowKey]; exists {
+	if wanID, exists := r.flowMap[flowKeyStr]; exists {
 		// Verify WAN is still available
 		for _, id := range availableWANs {
 			if id == wanID {
@@ -247,7 +250,7 @@ func (r *Router) routePerFlow(flowKey *protocol.FlowKey, availableWANs []uint8) 
 	// New flow or previous WAN unavailable - use consistent hashing
 	hash := r.hashFlow(flowKey)
 	wanID := availableWANs[hash%uint32(len(availableWANs))]
-	r.flowMap[*flowKey] = wanID
+	r.flowMap[flowKeyStr] = wanID
 
 	// Cleanup old flows periodically
 	if time.Since(r.lastCleanup) > 5*time.Minute {
@@ -301,7 +304,7 @@ func (r *Router) hashFlow(flowKey *protocol.FlowKey) uint32 {
 func (r *Router) cleanupFlowMap() {
 	// Simple cleanup: clear entire map
 	// In production, you'd track flow last-seen times
-	r.flowMap = make(map[protocol.FlowKey]uint8)
+	r.flowMap = make(map[string]uint8)
 	r.lastCleanup = time.Now()
 }
 

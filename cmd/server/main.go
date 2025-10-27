@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -101,9 +102,9 @@ func printStats(b *bonder.Bonder) {
 	metrics := b.GetMetrics()
 	wans := b.GetWANs()
 
-	fmt.Println("\n" + "="*80)
+	fmt.Println("\n" + strings.Repeat("=", 80))
 	fmt.Println("MultiWANBond Statistics")
-	fmt.Println("="*80)
+	fmt.Println(strings.Repeat("=", 80))
 
 	for id, wan := range wans {
 		m := metrics[id]
@@ -123,7 +124,7 @@ func printStats(b *bonder.Bonder) {
 		fmt.Printf("  Last Update:  %v\n", m.LastUpdate.Format("15:04:05"))
 	}
 
-	fmt.Println("\n" + "="*80)
+	fmt.Println("\n" + strings.Repeat("=", 80))
 }
 
 func getStateName(state interface{}) string {

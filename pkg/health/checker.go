@@ -169,20 +169,11 @@ func (c *Checker) CheckWAN(wan *protocol.WANInterface) (*protocol.WANMetrics, er
 		return nil, fmt.Errorf("no remote address configured")
 	}
 
-	// Create a probe packet
-	probe := &protocol.Packet{
-		Version:    protocol.ProtocolVersion,
-		Type:       protocol.PacketTypeHeartbeat,
-		SessionID:  0,
-		SequenceID: uint64(time.Now().UnixNano()),
-		Timestamp:  time.Now().UnixNano(),
-		WANID:      wan.ID,
-	}
-
 	// Send probe with timeout
 	sendTime := time.Now()
 
 	// Encode packet (simplified for now)
+	// TODO: Use proper packet encoding with full protocol.Packet structure
 	probeData := []byte{byte(protocol.PacketTypeHeartbeat)}
 
 	// Set deadline for response

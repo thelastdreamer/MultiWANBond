@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"fmt"
 	"net"
 	"time"
 )
@@ -139,6 +140,7 @@ type WANConfig struct {
 	HealthCheckInterval time.Duration // How often to check health
 	FailureThreshold    int       // Consecutive failures before marking down
 	Weight          int           // Weight for load balancing (higher = more traffic)
+	Priority        int           // Priority for failover (0 = highest/primary, higher = backup)
 	Enabled         bool          // Whether this interface is enabled
 }
 
@@ -198,6 +200,7 @@ const (
 	LoadBalanceLeastLatency                       // Send on lowest latency
 	LoadBalancePerFlow                            // Consistent per-flow routing
 	LoadBalanceAdaptive                           // Adaptive based on conditions
+	LoadBalanceFailover                           // Failover mode (primary/backup with sub-second switching)
 )
 
 // RoutingDecision contains information about where to send a packet
@@ -215,4 +218,9 @@ type FlowKey struct {
 	SrcPort uint16
 	DstPort uint16
 	Protocol uint8
+}
+
+// String converts FlowKey to a string for use as a map key
+func (f FlowKey) String() string {
+	return fmt.Sprintf("%s:%d->%s:%d/%d", f.SrcIP, f.SrcPort, f.DstIP, f.DstPort, f.Protocol)
 }
