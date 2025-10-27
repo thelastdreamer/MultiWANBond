@@ -1,0 +1,99 @@
+{
+  "session": {
+    "local_endpoint": "0.0.0.0:9000",
+    "remote_endpoint": "server.example.com:9000",
+    "duplicate_packets": false,
+    "duplicate_mode": "fastest",
+    "reorder_buffer": 1000,
+    "reorder_timeout": "500ms",
+    "multicast_enabled": false,
+    "multicast_groups": []
+  },
+  "wans": [
+    {
+      "id": 1,
+      "name": "Fiber",
+      "type": "fiber",
+      "local_addr": "192.168.1.100",
+      "remote_addr": "server.example.com:9000",
+      "max_bandwidth": 104857600,
+      "max_latency": "50ms",
+      "max_jitter": "10ms",
+      "max_packet_loss": 1.0,
+      "health_check_interval": "200ms",
+      "failure_threshold": 3,
+      "weight": 10,
+      "enabled": true
+    },
+    {
+      "id": 2,
+      "name": "VDSL",
+      "type": "vdsl",
+      "local_addr": "192.168.2.100",
+      "remote_addr": "server.example.com:9000",
+      "max_bandwidth": 10485760,
+      "max_latency": "100ms",
+      "max_jitter": "20ms",
+      "max_packet_loss": 2.0,
+      "health_check_interval": "200ms",
+      "failure_threshold": 3,
+      "weight": 5,
+      "enabled": true
+    },
+    {
+      "id": 3,
+      "name": "Starlink",
+      "type": "starlink",
+      "local_addr": "192.168.3.100",
+      "remote_addr": "server.example.com:9000",
+      "max_bandwidth": 52428800,
+      "max_latency": "100ms",
+      "max_jitter": "50ms",
+      "max_packet_loss": 3.0,
+      "health_check_interval": "200ms",
+      "failure_threshold": 3,
+      "weight": 7,
+      "enabled": true
+    },
+    {
+      "id": 4,
+      "name": "LTE",
+      "type": "lte",
+      "local_addr": "192.168.4.100",
+      "remote_addr": "server.example.com:9000",
+      "max_bandwidth": 5242880,
+      "max_latency": "150ms",
+      "max_jitter": "30ms",
+      "max_packet_loss": 5.0,
+      "health_check_interval": "200ms",
+      "failure_threshold": 3,
+      "weight": 3,
+      "enabled": true
+    }
+  ],
+  "routing": {
+    "mode": "adaptive",
+    "bandwidth_reset_interval": "1m"
+  },
+  "fec": {
+    "enabled": true,
+    "redundancy": 0.2,
+    "data_shards": 4,
+    "parity_shards": 2
+  },
+  "monitoring": {
+    "enabled": true,
+    "metrics_interval": "10s",
+    "alerts_enabled": true
+  },
+  "plugins": [
+    {
+      "name": "logger",
+      "enabled": true,
+      "config": {
+        "log_level": "info",
+        "log_file": "/var/log/multiwanbond.log"
+      }
+    }
+  ]
+}

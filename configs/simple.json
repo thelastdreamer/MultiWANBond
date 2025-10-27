@@ -1,0 +1,60 @@
+{
+  "session": {
+    "local_endpoint": "0.0.0.0:9000",
+    "remote_endpoint": "",
+    "duplicate_packets": false,
+    "duplicate_mode": "fastest",
+    "reorder_buffer": 500,
+    "reorder_timeout": "300ms",
+    "multicast_enabled": false,
+    "multicast_groups": []
+  },
+  "wans": [
+    {
+      "id": 1,
+      "name": "Primary",
+      "type": "fiber",
+      "local_addr": "192.168.1.100",
+      "remote_addr": "",
+      "max_bandwidth": 104857600,
+      "max_latency": "100ms",
+      "max_jitter": "20ms",
+      "max_packet_loss": 2.0,
+      "health_check_interval": "200ms",
+      "failure_threshold": 3,
+      "weight": 10,
+      "enabled": true
+    },
+    {
+      "id": 2,
+      "name": "Backup",
+      "type": "lte",
+      "local_addr": "192.168.2.100",
+      "remote_addr": "",
+      "max_bandwidth": 10485760,
+      "max_latency": "200ms",
+      "max_jitter": "50ms",
+      "max_packet_loss": 5.0,
+      "health_check_interval": "200ms",
+      "failure_threshold": 3,
+      "weight": 5,
+      "enabled": true
+    }
+  ],
+  "routing": {
+    "mode": "weighted",
+    "bandwidth_reset_interval": "1m"
+  },
+  "fec": {
+    "enabled": false,
+    "redundancy": 0.2,
+    "data_shards": 4,
+    "parity_shards": 2
+  },
+  "monitoring": {
+    "enabled": true,
+    "metrics_interval": "10s",
+    "alerts_enabled": true
+  },
+  "plugins": []
+}
