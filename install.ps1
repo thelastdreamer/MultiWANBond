@@ -10,8 +10,8 @@ $ErrorActionPreference = "Stop"
 # Colors for output
 function Write-Success { Write-Host $args -ForegroundColor Green }
 function Write-Info { Write-Host $args -ForegroundColor Cyan }
-function Write-Warning { Write-Host $args -ForegroundColor Yellow }
-function Write-Error { Write-Host $args -ForegroundColor Red }
+function Write-Warn { Write-Host $args -ForegroundColor Yellow }
+function Write-Err { Write-Host $args -ForegroundColor Red }
 
 function Test-Administrator {
     $currentUser = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -26,8 +26,8 @@ Write-Host ""
 
 # Check if running as administrator
 if (-not (Test-Administrator)) {
-    Write-Warning "This installer needs to run as Administrator."
-    Write-Warning "Please right-click and select 'Run as Administrator'"
+    Write-Warn "This installer needs to run as Administrator."
+    Write-Warn "Please right-click and select 'Run as Administrator'"
     Write-Host ""
     pause
     exit 1
@@ -45,16 +45,16 @@ try {
         $minor = [int]$matches[2]
 
         if ($major -ge 1 -and $minor -ge 21) {
-            Write-Success "  ✓ Go $major.$minor is installed"
+            Write-Success "  [OK] Go $major.$minor is installed"
             $goInstalled = $true
         }
         else {
-            Write-Warning "  ⚠ Go $major.$minor is installed but version 1.21+ is required"
+            Write-Warn "  [WARN] Go $major.$minor is installed but version 1.21+ is required"
         }
     }
 }
 catch {
-    Write-Warning "  ⚠ Go is not installed"
+    Write-Warn "  [WARN] Go is not installed"
 }
 
 if (-not $goInstalled) {
@@ -72,13 +72,13 @@ if (-not $goInstalled) {
         Write-Info "Opening Go download page..."
         Start-Process "https://go.dev/dl/"
         Write-Host ""
-        Write-Warning "Please install Go and run this installer again."
+        Write-Warn "Please install Go and run this installer again."
         Write-Host ""
         pause
         exit 1
     }
     else {
-        Write-Error "Go is required. Exiting installer."
+        Write-Err "Go is required. Exiting installer."
         exit 1
     }
 }
@@ -90,12 +90,12 @@ $gitInstalled = $false
 try {
     $gitVersion = & git --version 2>$null
     if ($gitVersion) {
-        Write-Success "  ✓ Git is installed"
+        Write-Success "  [OK] Git is installed"
         $gitInstalled = $true
     }
 }
 catch {
-    Write-Warning "  ⚠ Git is not installed"
+    Write-Warn "  [WARN] Git is not installed"
 }
 
 if (-not $gitInstalled) {
@@ -113,7 +113,7 @@ if (-not $gitInstalled) {
         Write-Info "Opening Git download page..."
         Start-Process "https://git-scm.com/download/win"
         Write-Host ""
-        Write-Warning "Please install Git if you want easy updates."
+        Write-Warn "Please install Git if you want easy updates."
         Write-Host ""
     }
 }
@@ -133,10 +133,10 @@ $env:GO111MODULE = "on"
 try {
     [Environment]::SetEnvironmentVariable("GOPATH", $goPath, "User")
     [Environment]::SetEnvironmentVariable("GO111MODULE", "on", "User")
-    Write-Success "  ✓ Go environment configured"
+    Write-Success "  [OK] Go environment configured"
 }
 catch {
-    Write-Warning "  ⚠ Could not set environment variables permanently"
+    Write-Warn "  [WARN] Could not set environment variables permanently"
 }
 
 # Create Go directories
@@ -154,7 +154,7 @@ $installDir = "$env:ProgramFiles\MultiWANBond"
 $configDir = "$env:ProgramData\MultiWANBond"
 
 if (Test-Path $installDir) {
-    Write-Warning "  ⚠ MultiWANBond is already installed at $installDir"
+    Write-Warn "  [WARN] MultiWANBond is already installed at $installDir"
 
     if ($AutoYes) {
         $update = "Y"
@@ -170,7 +170,7 @@ if (Test-Path $installDir) {
             & git pull
         }
         else {
-            Write-Warning "  Git not installed, skipping update"
+            Write-Warn "  Git not installed, skipping update"
         }
     }
 }
@@ -192,7 +192,7 @@ else {
         Remove-Item "$env:TEMP\MultiWANBond-temp" -Recurse -Force
     }
 
-    Write-Success "  ✓ MultiWANBond downloaded to $installDir"
+    Write-Success "  [OK] MultiWANBond downloaded to $installDir"
 }
 
 # 5. Download dependencies
@@ -201,11 +201,11 @@ Set-Location $installDir
 
 try {
     & go mod download
-    Write-Success "  ✓ Dependencies downloaded"
+    Write-Success "  [OK] Dependencies downloaded"
 }
 catch {
-    Write-Error "  ✗ Failed to download dependencies"
-    Write-Error "  Error: $_"
+    Write-Err "  [ERROR] Failed to download dependencies"
+    Write-Err "  Error: $_"
     exit 1
 }
 
@@ -215,11 +215,11 @@ Write-Info "[6/7] Building MultiWANBond..."
 try {
     $env:CGO_ENABLED = "0"
     & go build -ldflags "-s -w" -o "$installDir\multiwanbond.exe" .\cmd\server\main.go
-    Write-Success "  ✓ MultiWANBond built successfully"
+    Write-Success "  [OK] MultiWANBond built successfully"
 }
 catch {
-    Write-Error "  ✗ Build failed"
-    Write-Error "  Error: $_"
+    Write-Err "  [ERROR] Build failed"
+    Write-Err "  Error: $_"
     exit 1
 }
 
@@ -266,7 +266,7 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "================================================================" -ForegroundColor Green
 }
 else {
-    Write-Warning "Setup wizard was cancelled or encountered an error."
+    Write-Warn "Setup wizard was cancelled or encountered an error."
     Write-Info "You can run it again with:"
     Write-Host "  cd `"$installDir`""
     Write-Host "  .\multiwanbond.exe setup"

@@ -13,16 +13,98 @@ import (
 
 	"github.com/thelastdreamer/MultiWANBond/pkg/bonder"
 	"github.com/thelastdreamer/MultiWANBond/pkg/config"
+	"github.com/thelastdreamer/MultiWANBond/pkg/setup"
 )
 
-var (
-	configFile = flag.String("config", "configs/example.json", "Path to configuration file")
-	showStats  = flag.Bool("stats", true, "Show statistics")
-	statsInterval = flag.Duration("stats-interval", 10*time.Second, "Statistics interval")
+const (
+	version = "1.0.0"
 )
 
 func main() {
-	flag.Parse()
+	// Parse command if provided
+	if len(os.Args) > 1 {
+		cmd := os.Args[1]
+		switch cmd {
+		case "setup":
+			runSetup()
+			return
+		case "version", "--version", "-v":
+			fmt.Printf("MultiWANBond v%s\n", version)
+			return
+		case "help", "--help", "-h":
+			printHelp()
+			return
+		}
+	}
+
+	// Run server mode
+	runServer()
+}
+
+func runSetup() {
+	// Parse setup flags
+	fs := flag.NewFlagSet("setup", flag.ExitOnError)
+	configFile := fs.String("config", "", "Path to save configuration file")
+	fs.Parse(os.Args[2:])
+
+	// If no config file specified, use default
+	if *configFile == "" {
+		if homeDir, err := os.UserHomeDir(); err == nil {
+			*configFile = homeDir + "/.config/multiwanbond/config.json"
+		} else {
+			*configFile = "config.json"
+		}
+	}
+
+	fmt.Println("\n================================================================")
+	fmt.Println("       MultiWANBond Setup Wizard")
+	fmt.Println("================================================================\n")
+
+	// Create wizard
+	wizard, err := setup.NewWizard()
+	if err != nil {
+		log.Fatalf("Failed to create setup wizard: %v", err)
+	}
+
+	// Run wizard
+	cfg, err := wizard.Run()
+	if err != nil {
+		log.Fatalf("Setup failed: %v", err)
+	}
+
+	// Get network detector for conversion
+	detector, err := wizard.GetDetector()
+	if err != nil {
+		log.Fatalf("Failed to get network detector: %v", err)
+	}
+
+	// Save configuration as BondConfig format
+	if err := cfg.SaveAsBondConfig(*configFile, detector); err != nil {
+		log.Fatalf("Failed to save configuration: %v", err)
+	}
+
+	fmt.Printf("\n[OK] Configuration saved to: %s\n", *configFile)
+	fmt.Println("\nTo start MultiWANBond, run:")
+	fmt.Printf("  multiwanbond --config %s\n", *configFile)
+	fmt.Println("")
+}
+
+func runServer() {
+	// Parse server flags
+	fs := flag.NewFlagSet("server", flag.ExitOnError)
+	configFile := fs.String("config", "configs/example.json", "Path to configuration file")
+	showStats := fs.Bool("stats", true, "Show statistics")
+	statsInterval := fs.Duration("stats-interval", 10*time.Second, "Statistics interval")
+	fs.Parse(os.Args[1:])
+
+	// Check if config file exists
+	if _, err := os.Stat(*configFile); os.IsNotExist(err) {
+		log.Printf("Configuration file not found: %s", *configFile)
+		log.Println("\nPlease run the setup wizard first:")
+		log.Println("  multiwanbond setup")
+		log.Println("")
+		os.Exit(1)
+	}
 
 	// Load configuration
 	log.Printf("Loading configuration from %s", *configFile)
@@ -31,7 +113,12 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// Create bonder
+	// Validate configuration has at least one WAN
+	if len(cfg.WANs) == 0 {
+		log.Fatalf("Configuration must have at least one WAN interface")
+	}
+
+	// Create bonder with optional remote address
 	log.Println("Creating MultiWANBond instance...")
 	b, err := bonder.New(cfg)
 	if err != nil {
@@ -54,6 +141,14 @@ func main() {
 		log.Printf("  - WAN %d (%s): %s @ %s", wan.ID, wan.Name, wan.Type, wan.LocalAddr)
 	}
 
+	// Print mode information
+	if cfg.Session.RemoteEndpoint != "" {
+		log.Printf("Mode: Client - Connected to server at %s", cfg.Session.RemoteEndpoint)
+	} else {
+		log.Printf("Mode: Standalone - Not connected to any server")
+		log.Printf("You can configure a server address later by editing: %s", *configFile)
+	}
+
 	// Start receiver goroutine
 	go receiver(b)
 
@@ -66,7 +161,7 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	log.Println("MultiWANBond server is running. Press Ctrl+C to stop.")
+	log.Println("MultiWANBond is running. Press Ctrl+C to stop.")
 	<-sigChan
 
 	log.Println("Shutting down...")
@@ -148,4 +243,38 @@ func getStateName(state interface{}) string {
 	default:
 		return fmt.Sprintf("%v", state)
 	}
+}
+
+func printHelp() {
+	fmt.Printf("MultiWANBond v%s - Multi-WAN Bonding Solution\n\n", version)
+	fmt.Println("Usage:")
+	fmt.Println("  multiwanbond [command] [options]")
+	fmt.Println("")
+	fmt.Println("Commands:")
+	fmt.Println("  setup              Run interactive setup wizard")
+	fmt.Println("  (no command)       Run MultiWANBond server")
+	fmt.Println("  version            Show version information")
+	fmt.Println("  help               Show this help message")
+	fmt.Println("")
+	fmt.Println("Server Options:")
+	fmt.Println("  --config <file>    Path to configuration file (default: configs/example.json)")
+	fmt.Println("  --stats            Show statistics (default: true)")
+	fmt.Println("  --stats-interval   Statistics display interval (default: 10s)")
+	fmt.Println("")
+	fmt.Println("Setup Options:")
+	fmt.Println("  --config <file>    Path to save configuration file")
+	fmt.Println("")
+	fmt.Println("Examples:")
+	fmt.Println("  # Run setup wizard")
+	fmt.Println("  multiwanbond setup")
+	fmt.Println("")
+	fmt.Println("  # Run setup wizard with custom config path")
+	fmt.Println("  multiwanbond setup --config /etc/multiwanbond/config.json")
+	fmt.Println("")
+	fmt.Println("  # Start server with custom config")
+	fmt.Println("  multiwanbond --config /etc/multiwanbond/config.json")
+	fmt.Println("")
+	fmt.Println("  # Start server without statistics")
+	fmt.Println("  multiwanbond --config config.json --stats=false")
+	fmt.Println("")
 }

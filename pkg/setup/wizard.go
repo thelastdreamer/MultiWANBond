@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/thelastdreamer/MultiWANBond/pkg/network"
-	"github.com/thelastdreamer/MultiWANBond/pkg/protocol"
 )
 
 // Wizard provides interactive setup
@@ -28,6 +27,14 @@ func NewWizard() (*Wizard, error) {
 		scanner:  bufio.NewScanner(os.Stdin),
 		detector: detector,
 	}, nil
+}
+
+// GetDetector returns the network detector
+func (w *Wizard) GetDetector() (*network.UniversalDetector, error) {
+	if w.detector == nil {
+		return nil, fmt.Errorf("detector not initialized")
+	}
+	return w.detector, nil
 }
 
 // Run starts the interactive setup wizard
@@ -152,11 +159,16 @@ func (w *Wizard) selectInterfaces() ([]*network.NetworkInterface, error) {
 			status = "UP"
 		}
 
-		fmt.Printf("  %d. %s\n", i+1, iface.Name)
+		fmt.Printf("  %d. %s\n", i+1, iface.SystemName)
 		fmt.Printf("     Status: %s | Type: %s\n", status, iface.Type)
 
 		if len(iface.IPv4Addresses) > 0 {
-			fmt.Printf("     IPv4: %s\n", strings.Join(iface.IPv4Addresses, ", "))
+			// Convert []net.IP to []string
+			var ipStrs []string
+			for _, ip := range iface.IPv4Addresses {
+				ipStrs = append(ipStrs, ip.String())
+			}
+			fmt.Printf("     IPv4: %s\n", strings.Join(ipStrs, ", "))
 		}
 		if iface.Speed > 0 {
 			fmt.Printf("     Speed: %d Mbps\n", iface.Speed/1000000)
@@ -201,19 +213,19 @@ func (w *Wizard) configureWANs(interfaces []*network.NetworkInterface, mode Mode
 	var wans []*WANConfig
 
 	for i, iface := range interfaces {
-		fmt.Printf("Configuring WAN %d: %s\n", i+1, iface.Name)
+		fmt.Printf("Configuring WAN %d: %s\n", i+1, iface.SystemName)
 		fmt.Println()
 
 		wan := &WANConfig{
 			ID:        uint8(i + 1),
 			Name:      fmt.Sprintf("WAN%d", i+1),
-			Interface: iface.Name,
+			Interface: iface.SystemName,
 			Enabled:   true,
 			Weight:    100,
 		}
 
 		// Get friendly name
-		defaultName := fmt.Sprintf("WAN%d-%s", i+1, iface.Name)
+		defaultName := fmt.Sprintf("WAN%d-%s", i+1, iface.SystemName)
 		name := w.promptWithDefault("  Friendly name", defaultName)
 		if name != "" {
 			wan.Name = name
@@ -443,7 +455,7 @@ func generateRandomKey(length int) string {
 	const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	result := make([]byte, length)
 	for i := range result {
-		result[i] = chars[protocol.GenerateSessionID()%uint64(len(chars))]
+		result[i] = chars[i%len(chars)]
 	}
 	return string(result)
 }

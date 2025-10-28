@@ -175,7 +175,22 @@ func GetUsableInterfaces(ifaces []*NetworkInterface) []*NetworkInterface {
 	return FilterInterfaces(ifaces, IsInterfaceUsable)
 }
 
-// GetInterfaceByName finds an interface by system name
+// GetInterfaceByName finds an interface by system name (method on UniversalDetector)
+func (d *UniversalDetector) GetInterfaceByName(name string) (*NetworkInterface, error) {
+	ifaces, err := d.DetectAll()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, iface := range ifaces {
+		if iface.SystemName == name || iface.DisplayName == name {
+			return iface, nil
+		}
+	}
+	return nil, fmt.Errorf("interface %s not found", name)
+}
+
+// GetInterfaceByName finds an interface by system name (standalone function)
 func GetInterfaceByName(ifaces []*NetworkInterface, name string) *NetworkInterface {
 	for _, iface := range ifaces {
 		if iface.SystemName == name {
