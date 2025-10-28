@@ -195,13 +195,13 @@ else {
     Write-Success "  [OK] MultiWANBond downloaded to $installDir"
 }
 
-# 5. Download dependencies
+# 5. Download and verify dependencies
 Write-Info "[5/7] Downloading dependencies..."
 Set-Location $installDir
 
 try {
-    & go mod download
-    Write-Success "  [OK] Dependencies downloaded"
+    & go mod tidy
+    Write-Success "  [OK] Dependencies downloaded and verified"
 }
 catch {
     Write-Err "  [ERROR] Failed to download dependencies"

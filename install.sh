@@ -237,12 +237,12 @@ else
     echo -e "${GREEN}  ✓ MultiWANBond downloaded to $INSTALL_DIR${NC}"
 fi
 
-# 5. Download dependencies
+# 5. Download and verify dependencies
 echo -e "${CYAN}[5/7] Downloading dependencies...${NC}"
 cd "$INSTALL_DIR"
 
-if go mod download; then
-    echo -e "${GREEN}  ✓ Dependencies downloaded${NC}"
+if go mod tidy; then
+    echo -e "${GREEN}  ✓ Dependencies downloaded and verified${NC}"
 else
     echo -e "${RED}  ✗ Failed to download dependencies${NC}"
     exit 1
