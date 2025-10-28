@@ -7,6 +7,8 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -47,12 +49,18 @@ func runSetup() {
 	configFile := fs.String("config", "", "Path to save configuration file")
 	fs.Parse(os.Args[2:])
 
-	// If no config file specified, use default
+	// If no config file specified, use default based on OS
 	if *configFile == "" {
-		if homeDir, err := os.UserHomeDir(); err == nil {
-			*configFile = homeDir + "/.config/multiwanbond/config.json"
+		if runtime.GOOS == "windows" {
+			// Use ProgramData on Windows (same as installer)
+			*configFile = filepath.Join(os.Getenv("ProgramData"), "MultiWANBond", "config.json")
 		} else {
-			*configFile = "config.json"
+			// Use ~/.config on Linux/macOS
+			if homeDir, err := os.UserHomeDir(); err == nil {
+				*configFile = filepath.Join(homeDir, ".config", "multiwanbond", "config.json")
+			} else {
+				*configFile = "config.json"
+			}
 		}
 	}
 
