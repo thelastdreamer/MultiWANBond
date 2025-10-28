@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MultiWANBond Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            color: #2c3e50;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        }
+
+        .card h3 {
+            color: #667eea;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 15px;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 12px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            font-size: 18px;
+            color: #2c3e50;
+        }
+
+        .section-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin: 30px 0 20px;
+            color: #2c3e50;
+        }
+
+        .wan-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .wan-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border-left: 4px solid #95a5a6;
+            transition: all 0.3s;
+        }
+
+        .wan-card.up {
+            border-left-color: #27ae60;
+        }
+
+        .wan-card.degraded {
+            border-left-color: #f39c12;
+        }
+
+        .wan-card.down {
+            border-left-color: #e74c3c;
+        }
+
+        .wan-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .wan-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .wan-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .wan-status.up {
+            background: #d5f4e6;
+            color: #27ae60;
+        }
+
+        .wan-status.degraded {
+            background: #fef5e7;
+            color: #f39c12;
+        }
+
+        .wan-status.down {
+            background: #fadbd8;
+            color: #e74c3c;
+        }
+
+        .wan-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .wan-metric {
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+
+        .wan-metric-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-bottom: 4px;
+        }
+
+        .wan-metric-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.online {
+            background: #27ae60;
+        }
+
+        .status-indicator.offline {
+            background: #e74c3c;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #7f8c8d;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .empty-state-text {
+            font-size: 18px;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 30px 20px;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1>MultiWANBond Dashboard</h1>
+                    <p>Multi-WAN Bonding & Load Balancing System</p>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="window.location.href='index.html'" style="background: rgba(255,255,255,0.3); color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 14px;">Dashboard</button>
+                    <button onclick="window.location.href='config.html'" style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 14px;">Configuration</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="stats-grid">
+            <div class="card">
+                <h3>System Status</h3>
+                <div class="metric">
+                    <span class="metric-label">Uptime</span>
+                    <span class="metric-value" id="uptime">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Version</span>
+                    <span class="metric-value" id="version">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Platform</span>
+                    <span class="metric-value" id="platform">-</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>WAN Interfaces</h3>
+                <div class="metric">
+                    <span class="metric-label">Total WANs</span>
+                    <span class="metric-value" id="total-wans">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Healthy</span>
+                    <span class="metric-value" id="healthy-wans" style="color: #27ae60;">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Degraded</span>
+                    <span class="metric-value" id="degraded-wans" style="color: #f39c12;">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Down</span>
+                    <span class="metric-value" id="down-wans" style="color: #e74c3c;">-</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Traffic Statistics</h3>
+                <div class="metric">
+                    <span class="metric-label">Total Packets</span>
+                    <span class="metric-value" id="total-packets">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Total Bytes</span>
+                    <span class="metric-value" id="total-bytes">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Active Flows</span>
+                    <span class="metric-value" id="active-flows">-</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Connection</h3>
+                <div class="metric">
+                    <span class="metric-label">Status</span>
+                    <span class="metric-value">
+                        <span class="status-indicator online"></span>
+                        <span id="connection-status">Online</span>
+                    </span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">NAT Type</span>
+                    <span class="metric-value" id="nat-type">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Public IP</span>
+                    <span class="metric-value" id="public-ip">-</span>
+                </div>
+            </div>
+        </div>
+
+        <h2 class="section-title">WAN Interfaces</h2>
+        <div id="wans" class="wan-grid"></div>
+    </div>
+
+    <div class="footer">
+        <p>MultiWANBond v1.0.0 - Multi-WAN Bonding System</p>
+        <p>Last updated: <span id="last-update">-</span></p>
+    </div>
+
+    <script>
+        // Format bytes to human-readable format
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Format duration to human-readable format
+        function formatDuration(ns) {
+            const ms = ns / 1000000;
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+
+            if (days > 0) return `${days}d ${hours % 24}h`;
+            if (hours > 0) return `${hours}h ${minutes % 60}m`;
+            if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+            return `${seconds}s`;
+        }
+
+        // Format number with commas
+        function formatNumber(num) {
+            return num.toLocaleString();
+        }
+
+        // Update dashboard statistics
+        function updateDashboard() {
+            fetch('/api/dashboard')
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) {
+                        console.error('API error:', data.error);
+                        return;
+                    }
+
+                    const stats = data.data;
+
+                    // Update system stats
+                    document.getElementById('uptime').textContent = formatDuration(stats.uptime);
+                    document.getElementById('version').textContent = stats.version || 'N/A';
+                    document.getElementById('platform').textContent = stats.platform || 'N/A';
+
+                    // Update WAN stats
+                    document.getElementById('total-wans').textContent = stats.total_wans || 0;
+                    document.getElementById('healthy-wans').textContent = stats.healthy_wans || 0;
+                    document.getElementById('degraded-wans').textContent = stats.degraded_wans || 0;
+                    document.getElementById('down-wans').textContent = stats.down_wans || 0;
+
+                    // Update traffic stats
+                    document.getElementById('total-packets').textContent = formatNumber(stats.total_packets || 0);
+                    document.getElementById('total-bytes').textContent = formatBytes(stats.total_bytes || 0);
+                    document.getElementById('active-flows').textContent = stats.active_flows || 0;
+
+                    // Update connection stats
+                    document.getElementById('nat-type').textContent = stats.nat_type || 'Unknown';
+                    document.getElementById('public-ip').textContent = stats.public_ip || 'N/A';
+
+                    // Update last update time
+                    document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+                })
+                .catch(err => {
+                    console.error('Failed to fetch dashboard:', err);
+                });
+        }
+
+        // Update WAN status
+        function updateWANStatus() {
+            fetch('/api/wans/status')
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) {
+                        console.error('API error:', data.error);
+                        return;
+                    }
+
+                    const wans = data.data || [];
+                    const container = document.getElementById('wans');
+
+                    if (wans.length === 0) {
+                        container.innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-state-icon">&#128268;</div>
+                                <div class="empty-state-text">No WAN interfaces configured</div>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    container.innerHTML = wans.map(wan => `
+                        <div class="wan-card ${wan.status}">
+                            <div class="wan-header">
+                                <div class="wan-name">WAN ${wan.id}: ${wan.name}</div>
+                                <div class="wan-status ${wan.status}">${wan.status}</div>
+                            </div>
+                            <div class="wan-metrics">
+                                <div class="wan-metric">
+                                    <div class="wan-metric-label">Latency</div>
+                                    <div class="wan-metric-value">${wan.latency_ms}ms</div>
+                                </div>
+                                <div class="wan-metric">
+                                    <div class="wan-metric-label">Jitter</div>
+                                    <div class="wan-metric-value">${wan.jitter_ms}ms</div>
+                                </div>
+                                <div class="wan-metric">
+                                    <div class="wan-metric-label">Packet Loss</div>
+                                    <div class="wan-metric-value">${wan.packet_loss.toFixed(2)}%</div>
+                                </div>
+                                <div class="wan-metric">
+                                    <div class="wan-metric-label">Weight</div>
+                                    <div class="wan-metric-value">${wan.weight}</div>
+                                </div>
+                                <div class="wan-metric">
+                                    <div class="wan-metric-label">Sent</div>
+                                    <div class="wan-metric-value">${formatBytes(wan.bytes_sent)}</div>
+                                </div>
+                                <div class="wan-metric">
+                                    <div class="wan-metric-label">Received</div>
+                                    <div class="wan-metric-value">${formatBytes(wan.bytes_received)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                })
+                .catch(err => {
+                    console.error('Failed to fetch WAN status:', err);
+                });
+        }
+
+        // Update all data
+        function updateAll() {
+            updateDashboard();
+            updateWANStatus();
+        }
+
+        // Initial update
+        updateAll();
+
+        // Update every 2 seconds
+        setInterval(updateAll, 2000);
+    </script>
+</body>
+</html>

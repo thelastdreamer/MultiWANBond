@@ -15,7 +15,9 @@ import (
 
 	"github.com/thelastdreamer/MultiWANBond/pkg/bonder"
 	"github.com/thelastdreamer/MultiWANBond/pkg/config"
+	"github.com/thelastdreamer/MultiWANBond/pkg/protocol"
 	"github.com/thelastdreamer/MultiWANBond/pkg/setup"
+	"github.com/thelastdreamer/MultiWANBond/pkg/webui"
 )
 
 const (
@@ -142,6 +144,26 @@ func runServer() {
 		log.Fatalf("Failed to start bonder: %v", err)
 	}
 
+	// Start Web UI
+	log.Println("Starting Web UI server...")
+	webConfig := webui.DefaultConfig()
+	webConfig.ListenPort = 8080
+	webServer := webui.NewServer(webConfig)
+
+	// Set configuration file for web UI management
+	if err := webServer.SetConfigFile(*configFile); err != nil {
+		log.Printf("Warning: Failed to load config into Web UI: %v", err)
+	}
+
+	if err := webServer.Start(); err != nil {
+		log.Printf("Warning: Failed to start Web UI: %v", err)
+	} else {
+		log.Printf("Web UI available at: http://localhost:8080")
+	}
+
+	// Start metrics bridge to update Web UI
+	go metricsUpdater(b, webServer, 1*time.Second)
+
 	// Print WAN status
 	wans := b.GetWANs()
 	log.Printf("Active WANs: %d", len(wans))
@@ -196,8 +218,75 @@ func statsMonitor(b *bonder.Bonder, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
+	var prevMetrics map[uint8]*protocol.WANMetrics
+
 	for range ticker.C {
-		printStats(b)
+		metrics := b.GetMetrics()
+
+		// Only print if metrics have changed
+		if metricsChanged(prevMetrics, metrics) {
+			printStats(b)
+			prevMetrics = copyMetrics(metrics)
+		}
+	}
+}
+
+// metricsChanged checks if metrics have meaningfully changed
+func metricsChanged(prev, current map[uint8]*protocol.WANMetrics) bool {
+	if prev == nil {
+		return true // First run, show stats
+	}
+
+	if len(prev) != len(current) {
+		return true // Number of WANs changed
+	}
+
+	for id, curr := range current {
+		old, exists := prev[id]
+		if !exists {
+			return true // New WAN appeared
+		}
+
+		// Check if significant changes occurred
+		if old.PacketsSent != curr.PacketsSent ||
+			old.PacketsRecv != curr.PacketsRecv ||
+			old.BytesSent != curr.BytesSent ||
+			old.BytesReceived != curr.BytesReceived {
+			return true // Traffic changed
+		}
+	}
+
+	return false // No changes
+}
+
+// copyMetrics creates a deep copy of metrics map
+func copyMetrics(metrics map[uint8]*protocol.WANMetrics) map[uint8]*protocol.WANMetrics {
+	if metrics == nil {
+		return nil
+	}
+
+	copy := make(map[uint8]*protocol.WANMetrics, len(metrics))
+	for id, m := range metrics {
+		if m == nil {
+			continue
+		}
+		metricsCopy := *m
+		copy[id] = &metricsCopy
+	}
+	return copy
+}
+
+// metricsUpdater continuously updates Web UI with latest metrics
+func metricsUpdater(b *bonder.Bonder, server *webui.Server, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		metrics := b.GetMetrics()
+		wans := b.GetWANs()
+
+		// Update Web UI statistics
+		server.UpdateStats(metrics, wans)
 	}
 }
 

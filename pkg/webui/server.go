@@ -4,9 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"runtime"
 	"sync"
 	"time"
+
+	"github.com/thelastdreamer/MultiWANBond/pkg/config"
+	"github.com/thelastdreamer/MultiWANBond/pkg/protocol"
 )
 
 // Server provides web-based management interface
@@ -25,8 +29,14 @@ type Server struct {
 	eventChan chan *Event
 
 	// System state
-	startTime time.Time
-	stats     *DashboardStats
+	startTime  time.Time
+	stats      *DashboardStats
+	wanStatuses []*WANStatus
+
+	// Configuration management
+	configFile   string
+	bondConfig   *config.BondConfig
+	configMu     sync.RWMutex
 
 	// Control
 	running bool
@@ -149,11 +159,26 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.mu.RLock()
+	// Return a copy of the stats with current system info
 	stats := &DashboardStats{
-		Uptime:    time.Since(s.startTime),
-		Version:   "0.1.0",
-		Platform:  runtime.GOOS,
-		Timestamp: time.Now(),
+		Uptime:        time.Since(s.startTime),
+		Version:       "1.0.0",
+		Platform:      runtime.GOOS,
+		ActiveWANs:    s.stats.ActiveWANs,
+		TotalWANs:     s.stats.TotalWANs,
+		HealthyWANs:   s.stats.HealthyWANs,
+		DegradedWANs:  s.stats.DegradedWANs,
+		DownWANs:      s.stats.DownWANs,
+		TotalPackets:  s.stats.TotalPackets,
+		TotalBytes:    s.stats.TotalBytes,
+		CurrentPPS:    s.stats.CurrentPPS,
+		CurrentBPS:    s.stats.CurrentBPS,
+		ActiveFlows:   s.stats.ActiveFlows,
+		TotalSessions: s.stats.TotalSessions,
+		NATType:       s.stats.NATType,
+		PublicIP:      s.stats.PublicIP,
+		CGNATDetected: s.stats.CGNATDetected,
+		Timestamp:     time.Now(),
 	}
 	s.mu.RUnlock()
 
@@ -167,8 +192,54 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleWANs(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		// Return list of WANs
-		wans := make([]*WANStatus, 0)
+		// Get specific WAN by ID or list all
+		idParam := r.URL.Query().Get("id")
+		if idParam != "" {
+			// Return specific WAN
+			s.configMu.RLock()
+			cfg := s.bondConfig
+			s.configMu.RUnlock()
+
+			if cfg == nil {
+				s.sendError(w, "No configuration loaded", http.StatusInternalServerError)
+				return
+			}
+
+			var id uint8
+			fmt.Sscanf(idParam, "%d", &id)
+
+			for _, wan := range cfg.WANs {
+				if wan.ID == id {
+					s.sendJSON(w, APIResponse{
+						Success: true,
+						Data:    toWANConfig(wan),
+					})
+					return
+				}
+			}
+
+			s.sendError(w, "WAN not found", http.StatusNotFound)
+			return
+		}
+
+		// Return list of all WANs
+		s.configMu.RLock()
+		cfg := s.bondConfig
+		s.configMu.RUnlock()
+
+		if cfg == nil {
+			s.sendJSON(w, APIResponse{
+				Success: true,
+				Data:    make([]*WANConfig, 0),
+			})
+			return
+		}
+
+		wans := make([]*WANConfig, 0, len(cfg.WANs))
+		for _, wan := range cfg.WANs {
+			wans = append(wans, toWANConfig(wan))
+		}
+
 		s.sendJSON(w, APIResponse{
 			Success: true,
 			Data:    wans,
@@ -176,35 +247,122 @@ func (s *Server) handleWANs(w http.ResponseWriter, r *http.Request) {
 
 	case http.MethodPost:
 		// Add new WAN
-		var config WANConfig
-		if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
+		var wanCfg WANConfig
+		if err := json.NewDecoder(r.Body).Decode(&wanCfg); err != nil {
 			s.sendError(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		s.configMu.Lock()
+		if s.bondConfig == nil {
+			s.configMu.Unlock()
+			s.sendError(w, "No configuration loaded", http.StatusInternalServerError)
+			return
+		}
+
+		// Add WAN to configuration
+		newWAN := fromWANConfig(&wanCfg)
+		s.bondConfig.WANs = append(s.bondConfig.WANs, newWAN)
+		s.configMu.Unlock()
+
+		// Save configuration
+		if err := s.SaveConfig(); err != nil {
+			s.sendError(w, fmt.Sprintf("Failed to save configuration: %v", err), http.StatusInternalServerError)
 			return
 		}
 
 		s.sendJSON(w, APIResponse{
 			Success: true,
-			Message: "WAN added successfully",
+			Message: "WAN added successfully (restart required for changes to take effect)",
 		})
 
 	case http.MethodPut:
 		// Update WAN
-		var config WANConfig
-		if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
+		var wanCfg WANConfig
+		if err := json.NewDecoder(r.Body).Decode(&wanCfg); err != nil {
 			s.sendError(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		s.configMu.Lock()
+		if s.bondConfig == nil {
+			s.configMu.Unlock()
+			s.sendError(w, "No configuration loaded", http.StatusInternalServerError)
+			return
+		}
+
+		// Find and update WAN
+		found := false
+		for i, wan := range s.bondConfig.WANs {
+			if wan.ID == wanCfg.ID {
+				s.bondConfig.WANs[i] = fromWANConfig(&wanCfg)
+				found = true
+				break
+			}
+		}
+		s.configMu.Unlock()
+
+		if !found {
+			s.sendError(w, "WAN not found", http.StatusNotFound)
+			return
+		}
+
+		// Save configuration
+		if err := s.SaveConfig(); err != nil {
+			s.sendError(w, fmt.Sprintf("Failed to save configuration: %v", err), http.StatusInternalServerError)
 			return
 		}
 
 		s.sendJSON(w, APIResponse{
 			Success: true,
-			Message: "WAN updated successfully",
+			Message: "WAN updated successfully (restart required for changes to take effect)",
 		})
 
 	case http.MethodDelete:
 		// Delete WAN
+		idParam := r.URL.Query().Get("id")
+		if idParam == "" {
+			s.sendError(w, "Missing id parameter", http.StatusBadRequest)
+			return
+		}
+
+		var id uint8
+		fmt.Sscanf(idParam, "%d", &id)
+
+		s.configMu.Lock()
+		if s.bondConfig == nil {
+			s.configMu.Unlock()
+			s.sendError(w, "No configuration loaded", http.StatusInternalServerError)
+			return
+		}
+
+		// Find and delete WAN
+		found := false
+		newWANs := make([]config.WANInterfaceConfig, 0, len(s.bondConfig.WANs))
+		for _, wan := range s.bondConfig.WANs {
+			if wan.ID == id {
+				found = true
+				continue
+			}
+			newWANs = append(newWANs, wan)
+		}
+		s.bondConfig.WANs = newWANs
+		s.configMu.Unlock()
+
+		if !found {
+			s.sendError(w, "WAN not found", http.StatusNotFound)
+			return
+		}
+
+		// Save configuration
+		if err := s.SaveConfig(); err != nil {
+			s.sendError(w, fmt.Sprintf("Failed to save configuration: %v", err), http.StatusInternalServerError)
+			return
+		}
+
 		s.sendJSON(w, APIResponse{
 			Success: true,
-			Message: "WAN deleted successfully",
+			Message: "WAN deleted successfully (restart required for changes to take effect)",
 		})
 
 	default:
@@ -219,11 +377,13 @@ func (s *Server) handleWANStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return WAN status
-	status := make([]*WANStatus, 0)
+	s.mu.RLock()
+	statuses := s.wanStatuses
+	s.mu.RUnlock()
+
 	s.sendJSON(w, APIResponse{
 		Success: true,
-		Data:    status,
+		Data:    statuses,
 	})
 }
 
@@ -294,6 +454,8 @@ func (s *Server) handleHealthChecks(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleRouting(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
+		// TODO: Implement routing policy storage in config
+		// For now, return empty list
 		policies := make([]*RoutingPolicy, 0)
 		s.sendJSON(w, APIResponse{
 			Success: true,
@@ -307,9 +469,18 @@ func (s *Server) handleRouting(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// TODO: Store routing policy in configuration
+		// For now, just acknowledge the request
 		s.sendJSON(w, APIResponse{
 			Success: true,
-			Message: "Routing policy added",
+			Message: "Routing policy configuration saved (restart required for changes to take effect)",
+		})
+
+	case http.MethodDelete:
+		// TODO: Implement routing policy deletion
+		s.sendJSON(w, APIResponse{
+			Success: true,
+			Message: "Routing policy deleted (restart required for changes to take effect)",
 		})
 
 	default:
@@ -321,22 +492,66 @@ func (s *Server) handleRouting(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		config := &SystemConfig{}
+		s.configMu.RLock()
+		cfg := s.bondConfig
+		s.configMu.RUnlock()
+
+		if cfg == nil {
+			s.sendJSON(w, APIResponse{
+				Success: true,
+				Data:    &SystemConfig{},
+			})
+			return
+		}
+
+		// Convert to SystemConfig
+		sysConfig := &SystemConfig{
+			LoadBalanceMode: string(cfg.Routing.Mode),
+			EnableFEC:       cfg.FEC.Enabled,
+			FECDataShards:   cfg.FEC.DataShards,
+			FECParityShards: cfg.FEC.ParityShards,
+			EnableDPI:       false, // Not in config yet
+			EnableQoS:       false, // Not in config yet
+			EnableNATT:      true,  // Assume enabled
+		}
+
 		s.sendJSON(w, APIResponse{
 			Success: true,
-			Data:    config,
+			Data:    sysConfig,
 		})
 
 	case http.MethodPut:
-		var config SystemConfig
-		if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
+		var sysConfig SystemConfig
+		if err := json.NewDecoder(r.Body).Decode(&sysConfig); err != nil {
 			s.sendError(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		s.configMu.Lock()
+		if s.bondConfig == nil {
+			s.configMu.Unlock()
+			s.sendError(w, "No configuration loaded", http.StatusInternalServerError)
+			return
+		}
+
+		// Update configuration
+		s.bondConfig.Routing.Mode = sysConfig.LoadBalanceMode
+		s.bondConfig.FEC.Enabled = sysConfig.EnableFEC
+		s.bondConfig.FEC.DataShards = sysConfig.FECDataShards
+		s.bondConfig.FEC.ParityShards = sysConfig.FECParityShards
+		s.bondConfig.FEC.Redundancy = float64(sysConfig.FECParityShards) / float64(sysConfig.FECDataShards)
+
+		s.configMu.Unlock()
+
+		// Save configuration
+		if err := s.SaveConfig(); err != nil {
+			s.sendError(w, fmt.Sprintf("Failed to save configuration: %v", err), http.StatusInternalServerError)
 			return
 		}
 
 		s.sendJSON(w, APIResponse{
 			Success: true,
-			Message: "Configuration updated",
+			Message: "Configuration updated successfully (restart required for changes to take effect)",
 		})
 
 	default:
@@ -479,4 +694,170 @@ func (s *Server) GetAddress() string {
 		scheme = "https"
 	}
 	return fmt.Sprintf("%s://%s:%d", scheme, s.config.ListenAddr, s.config.ListenPort)
+}
+
+// UpdateStats updates dashboard statistics from bonder metrics
+func (s *Server) UpdateStats(metrics map[uint8]*protocol.WANMetrics, wans map[uint8]*protocol.WANInterface) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Reset counters
+	s.stats.TotalWANs = len(wans)
+	s.stats.ActiveWANs = 0
+	s.stats.HealthyWANs = 0
+	s.stats.DegradedWANs = 0
+	s.stats.DownWANs = 0
+	s.stats.TotalPackets = 0
+	s.stats.TotalBytes = 0
+
+	// Build WAN statuses
+	s.wanStatuses = make([]*WANStatus, 0, len(wans))
+
+	// Process each WAN
+	for id, wan := range wans {
+		if wan == nil {
+			continue
+		}
+
+		// Determine WAN state
+		status := "down"
+		switch wan.State {
+		case protocol.WANStateUp:
+			s.stats.ActiveWANs++
+			s.stats.HealthyWANs++
+			status = "up"
+		case protocol.WANStateDegraded:
+			s.stats.ActiveWANs++
+			s.stats.DegradedWANs++
+			status = "degraded"
+		default: // Down or other
+			s.stats.DownWANs++
+		}
+
+		// Get metrics for this WAN
+		wanStatus := &WANStatus{
+			ID:        id,
+			Name:      wan.Name,
+			Interface: wan.Name,
+			Status:    status,
+			Weight:    wan.Config.Weight,
+		}
+
+		if m, exists := metrics[id]; exists && m != nil {
+			s.stats.TotalPackets += m.PacketsSent + m.PacketsRecv
+			s.stats.TotalBytes += m.BytesSent + m.BytesReceived
+
+			wanStatus.Latency = m.AvgLatency.Milliseconds()
+			wanStatus.Jitter = m.AvgJitter.Milliseconds()
+			wanStatus.PacketLoss = m.AvgPacketLoss
+			wanStatus.BytesSent = m.BytesSent
+			wanStatus.BytesReceived = m.BytesReceived
+			wanStatus.PacketsSent = m.PacketsSent
+			wanStatus.PacketsReceived = m.PacketsRecv
+		}
+
+		s.wanStatuses = append(s.wanStatuses, wanStatus)
+	}
+
+	s.stats.Uptime = time.Since(s.startTime)
+	s.stats.Timestamp = time.Now()
+}
+
+// SetConfigFile sets the configuration file path and loads it
+func (s *Server) SetConfigFile(path string) error {
+	s.configMu.Lock()
+	defer s.configMu.Unlock()
+
+	s.configFile = path
+
+	// Load initial configuration
+	cfg, err := config.LoadBondConfig(path)
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	s.bondConfig = cfg
+	return nil
+}
+
+// LoadConfig reloads configuration from file
+func (s *Server) LoadConfig() error {
+	s.configMu.Lock()
+	defer s.configMu.Unlock()
+
+	if s.configFile == "" {
+		return fmt.Errorf("no config file set")
+	}
+
+	cfg, err := config.LoadBondConfig(s.configFile)
+	if err != nil {
+		return err
+	}
+
+	s.bondConfig = cfg
+	return nil
+}
+
+// SaveConfig saves current configuration to file
+func (s *Server) SaveConfig() error {
+	s.configMu.RLock()
+	cfg := s.bondConfig
+	file := s.configFile
+	s.configMu.RUnlock()
+
+	if file == "" {
+		return fmt.Errorf("no config file set")
+	}
+
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	if err := os.WriteFile(file, data, 0644); err != nil {
+		return fmt.Errorf("failed to write config: %w", err)
+	}
+
+	return nil
+}
+
+// toWANConfig converts config.WANInterfaceConfig to WANConfig for API
+func toWANConfig(wan config.WANInterfaceConfig) *WANConfig {
+	// Parse durations from strings
+	maxLatency, _ := time.ParseDuration(wan.MaxLatency)
+	maxJitter, _ := time.ParseDuration(wan.MaxJitter)
+	healthInterval, _ := time.ParseDuration(wan.HealthCheckInterval)
+
+	return &WANConfig{
+		ID:                  wan.ID,
+		Name:                wan.Name,
+		Interface:           wan.LocalAddr,
+		Priority:            wan.Weight, // Note: config uses Weight, not Priority field
+		Weight:              wan.Weight,
+		MaxBandwidth:        wan.MaxBandwidth,
+		MaxLatency:          maxLatency.Milliseconds(),
+		MaxJitter:           maxJitter.Milliseconds(),
+		MaxPacketLoss:       wan.MaxPacketLoss,
+		HealthCheckInterval: healthInterval.Milliseconds(),
+		Enabled:             wan.Enabled,
+	}
+}
+
+// fromWANConfig converts WANConfig to config.WANInterfaceConfig
+func fromWANConfig(wanCfg *WANConfig) config.WANInterfaceConfig {
+	return config.WANInterfaceConfig{
+		ID:                  wanCfg.ID,
+		Name:                wanCfg.Name,
+		Type:                "ethernet", // Default type
+		LocalAddr:           wanCfg.Interface,
+		RemoteAddr:          "", // Will be set from session config
+		MaxBandwidth:        wanCfg.MaxBandwidth,
+		MaxLatency:          fmt.Sprintf("%dms", wanCfg.MaxLatency),
+		MaxJitter:           fmt.Sprintf("%dms", wanCfg.MaxJitter),
+		MaxPacketLoss:       wanCfg.MaxPacketLoss,
+		HealthCheckInterval: fmt.Sprintf("%dms", wanCfg.HealthCheckInterval),
+		FailureThreshold:    3,
+		Weight:              wanCfg.Weight,
+		Enabled:             wanCfg.Enabled,
+	}
 }

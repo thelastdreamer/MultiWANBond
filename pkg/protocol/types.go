@@ -112,6 +112,23 @@ const (
 	WANStateRecovering
 )
 
+func (s WANState) String() string {
+	switch s {
+	case WANStateDown:
+		return "Down"
+	case WANStateStarting:
+		return "Starting"
+	case WANStateUp:
+		return "Up"
+	case WANStateDegraded:
+		return "Degraded"
+	case WANStateRecovering:
+		return "Recovering"
+	default:
+		return "Unknown"
+	}
+}
+
 // WANMetrics contains real-time metrics for a WAN interface
 type WANMetrics struct {
 	Latency       time.Duration // Current RTT
