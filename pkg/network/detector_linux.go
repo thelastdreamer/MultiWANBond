@@ -170,6 +170,28 @@ func (d *LinuxDetector) enrichInterfaceInfo(iface *NetworkInterface) {
 
 // determineInterfaceType determines the type of interface
 func (d *LinuxDetector) determineInterfaceType(link netlink.Link) InterfaceType {
+	attrs := link.Attrs()
+
+	// Check by type name first (works with all versions)
+	typeName := link.Type()
+	switch typeName {
+	case "vlan":
+		return InterfaceVLAN
+	case "bond":
+		return InterfaceBond
+	case "bridge":
+		return InterfaceBridge
+	case "veth":
+		return InterfaceVirtual
+	case "dummy":
+		return InterfaceVirtual
+	case "gre", "gretap", "ip6tnl", "ipip", "sit", "ip6gre":
+		return InterfaceTunnel
+	case "tun", "tap":
+		return InterfaceTunnel
+	}
+
+	// Fallback to type assertion for common types
 	switch link.(type) {
 	case *netlink.Vlan:
 		return InterfaceVLAN
@@ -181,25 +203,30 @@ func (d *LinuxDetector) determineInterfaceType(link netlink.Link) InterfaceType 
 		return InterfaceVirtual
 	case *netlink.Dummy:
 		return InterfaceVirtual
-	case *netlink.Gretap, *netlink.Gretun, *netlink.Ip6tnl, *netlink.Ipip, *netlink.Iptun, *netlink.Sittun:
-		return InterfaceTunnel
-	case *netlink.Device:
-		attrs := link.Attrs()
-		if attrs.Flags&net.FlagLoopback != 0 {
-			return InterfaceLoopback
-		}
-		// Check if it's a wireless interface
-		if strings.HasPrefix(attrs.Name, "wl") || strings.HasPrefix(attrs.Name, "wlan") {
-			return InterfacePhysical
-		}
-		// Check if it's virtual
-		if strings.HasPrefix(attrs.Name, "veth") || strings.HasPrefix(attrs.Name, "tap") || strings.HasPrefix(attrs.Name, "tun") {
-			return InterfaceVirtual
-		}
-		return InterfacePhysical
-	default:
+	}
+
+	// Check by name patterns
+	if attrs.Flags&net.FlagLoopback != 0 {
+		return InterfaceLoopback
+	}
+
+	// Check if it's a wireless interface
+	if strings.HasPrefix(attrs.Name, "wl") || strings.HasPrefix(attrs.Name, "wlan") {
 		return InterfacePhysical
 	}
+
+	// Check if it's virtual by name
+	if strings.HasPrefix(attrs.Name, "veth") || strings.HasPrefix(attrs.Name, "tap") || strings.HasPrefix(attrs.Name, "tun") {
+		return InterfaceVirtual
+	}
+
+	// Check if it's a tunnel by name
+	if strings.HasPrefix(attrs.Name, "gre") || strings.HasPrefix(attrs.Name, "tun") || strings.HasPrefix(attrs.Name, "ip6") {
+		return InterfaceTunnel
+	}
+
+	// Default to physical
+	return InterfacePhysical
 }
 
 // getIPAddresses gets IPv4 and IPv6 addresses for an interface
