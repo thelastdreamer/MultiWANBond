@@ -2,6 +2,8 @@ package setup
 
 import (
 	"bufio"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strconv"
@@ -85,7 +87,14 @@ func (w *Wizard) Run() (*Config, error) {
 	}
 	config.Security = security
 
-	// Step 6: Review and confirm
+	// Step 6: Generate Web UI credentials
+	webui, err := w.configureWebUI()
+	if err != nil {
+		return nil, err
+	}
+	config.WebUI = webui
+
+	// Step 7: Review and confirm
 	fmt.Println()
 	printHeader("Configuration Summary")
 	fmt.Println()
@@ -327,6 +336,48 @@ func (w *Wizard) configureSecurity() (*SecurityConfig, error) {
 	return config, nil
 }
 
+// configureWebUI generates Web UI credentials
+func (w *Wizard) configureWebUI() (*WebUIConfig, error) {
+	fmt.Println()
+	printSection("Step 6: Web UI Security")
+	fmt.Println()
+
+	config := &WebUIConfig{
+		Username: "admin",
+		Enabled:  true,
+	}
+
+	fmt.Println("Generating secure password for Web UI access...")
+	fmt.Println()
+
+	password, err := generatePassword(16)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate password: %w", err)
+	}
+
+	config.Password = password
+
+	fmt.Println("═══════════════════════════════════════════════════════════")
+	fmt.Println("  ⚠️  IMPORTANT: Web UI Credentials - SAVE THESE SECURELY!")
+	fmt.Println("═══════════════════════════════════════════════════════════")
+	fmt.Println()
+	fmt.Println("  Web UI URL:  http://localhost:8080")
+	fmt.Println("  Username:    admin")
+	fmt.Printf("  Password:    %s\n", password)
+	fmt.Println()
+	fmt.Println("  ⚠️  Write this password down NOW!")
+	fmt.Println("  ⚠️  You'll need it to access the Web UI dashboard.")
+	fmt.Println("  ⚠️  This password will be saved to your config file.")
+	fmt.Println()
+	fmt.Println("═══════════════════════════════════════════════════════════")
+	fmt.Println()
+
+	fmt.Print("Press Enter to continue...")
+	w.scanner.Scan()
+
+	return config, nil
+}
+
 // Helper functions
 
 func (w *Wizard) isUsable(iface *network.NetworkInterface) bool {
@@ -437,6 +488,14 @@ func (w *Wizard) printSummary(config *Config) {
 			fmt.Println("Encryption:    disabled")
 		}
 	}
+
+	fmt.Println()
+	if config.WebUI != nil && config.WebUI.Enabled {
+		fmt.Println("Web UI Access:")
+		fmt.Println("  URL:      http://localhost:8080")
+		fmt.Printf("  Username: %s\n", config.WebUI.Username)
+		fmt.Printf("  Password: %s (saved in config)\n", config.WebUI.Password)
+	}
 }
 
 func printHeader(title string) {
@@ -452,10 +511,32 @@ func printSection(title string) {
 }
 
 func generateRandomKey(length int) string {
-	const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	result := make([]byte, length)
-	for i := range result {
-		result[i] = chars[i%len(chars)]
+	bytes := make([]byte, length)
+	if _, err := rand.Read(bytes); err != nil {
+		// Fallback to timestamp-based if crypto/rand fails (shouldn't happen)
+		panic(fmt.Sprintf("failed to generate random key: %v", err))
 	}
-	return string(result)
+	// Use URL-safe base64 encoding and trim to desired length
+	encoded := base64.URLEncoding.EncodeToString(bytes)
+	if len(encoded) > length {
+		return encoded[:length]
+	}
+	return encoded
+}
+
+// generatePassword generates a cryptographically secure random password
+func generatePassword(length int) (string, error) {
+	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	result := make([]byte, length)
+	randomBytes := make([]byte, length)
+
+	if _, err := rand.Read(randomBytes); err != nil {
+		return "", fmt.Errorf("failed to generate random bytes: %w", err)
+	}
+
+	for i := 0; i < length; i++ {
+		result[i] = charset[int(randomBytes[i])%len(charset)]
+	}
+
+	return string(result), nil
 }

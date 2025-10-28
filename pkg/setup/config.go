@@ -25,6 +25,7 @@ type Config struct {
 	Security *SecurityConfig `json:"security,omitempty"`
 	Health   *HealthConfig   `json:"health,omitempty"`
 	Routing  *RoutingConfig  `json:"routing,omitempty"`
+	WebUI    *WebUIConfig    `json:"webui,omitempty"`
 }
 
 // WANConfig represents a WAN interface configuration
@@ -61,6 +62,13 @@ type HealthConfig struct {
 // RoutingConfig represents routing settings
 type RoutingConfig struct {
 	Mode string `json:"mode"`
+}
+
+// WebUIConfig represents Web UI authentication settings
+type WebUIConfig struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Enabled  bool   `json:"enabled"`
 }
 
 // SaveToFile saves the configuration to a JSON file
@@ -121,6 +129,14 @@ func (c *Config) SetDefaults() {
 		c.Security = &SecurityConfig{
 			EncryptionEnabled: true,
 			EncryptionType:    "chacha20poly1305",
+		}
+	}
+
+	if c.WebUI == nil {
+		c.WebUI = &WebUIConfig{
+			Username: "admin",
+			Password: "", // Will be generated during setup
+			Enabled:  true,
 		}
 	}
 }

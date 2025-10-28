@@ -100,6 +100,15 @@ func (c *Config) ToBondConfig(detector *network.UniversalDetector) (*config.Bond
 		bondConfig.Routing.Mode = c.Routing.Mode
 	}
 
+	// Configure Web UI
+	if c.WebUI != nil {
+		bondConfig.WebUI = &config.WebUIConfig{
+			Username: c.WebUI.Username,
+			Password: c.WebUI.Password,
+			Enabled:  c.WebUI.Enabled,
+		}
+	}
+
 	return bondConfig, nil
 }
 

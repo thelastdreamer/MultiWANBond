@@ -148,6 +148,17 @@ func runServer() {
 	log.Println("Starting Web UI server...")
 	webConfig := webui.DefaultConfig()
 	webConfig.ListenPort = 8080
+
+	// Load credentials from config if available
+	if cfg.WebUI != nil && cfg.WebUI.Enabled {
+		webConfig.EnableAuth = true
+		webConfig.Username = cfg.WebUI.Username
+		webConfig.Password = cfg.WebUI.Password
+		log.Println("Web UI authentication enabled")
+	} else {
+		log.Println("WARNING: Web UI running without authentication!")
+	}
+
 	webServer := webui.NewServer(webConfig)
 
 	// Set configuration file for web UI management
@@ -158,7 +169,11 @@ func runServer() {
 	if err := webServer.Start(); err != nil {
 		log.Printf("Warning: Failed to start Web UI: %v", err)
 	} else {
-		log.Printf("Web UI available at: http://localhost:8080")
+		if cfg.WebUI != nil && cfg.WebUI.Enabled {
+			log.Printf("Web UI available at: http://localhost:8080 (Username: %s)", cfg.WebUI.Username)
+		} else {
+			log.Printf("Web UI available at: http://localhost:8080 (No authentication)")
+		}
 	}
 
 	// Start metrics bridge to update Web UI

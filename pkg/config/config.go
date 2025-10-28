@@ -38,6 +38,9 @@ type BondConfig struct {
 
 	// Plugins configuration
 	Plugins []PluginConfig `json:"plugins"`
+
+	// Web UI configuration
+	WebUI *WebUIConfig `json:"webui,omitempty"`
 }
 
 // SessionConfig contains session-level configuration
@@ -71,8 +74,21 @@ type WANInterfaceConfig struct {
 
 // RoutingConfig contains routing configuration
 type RoutingConfig struct {
-	Mode                string `json:"mode"` // "round_robin", "weighted", "least_used", etc.
-	BandwidthResetInterval string `json:"bandwidth_reset_interval"` // e.g., "1m"
+	Mode                string          `json:"mode"` // "round_robin", "weighted", "least_used", etc.
+	BandwidthResetInterval string       `json:"bandwidth_reset_interval"` // e.g., "1m"
+	Policies            []RoutingPolicy `json:"policies,omitempty"` // Routing policies
+}
+
+// RoutingPolicy defines a routing policy rule
+type RoutingPolicy struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Type        string `json:"type"` // "source", "destination", "application"
+	Match       string `json:"match"` // IP, CIDR, domain, or app name
+	TargetWAN   uint8  `json:"target_wan"` // WAN ID to use
+	Priority    int    `json:"priority"` // Lower = higher priority
+	Enabled     bool   `json:"enabled"`
 }
 
 // FECConfig contains FEC configuration
@@ -95,6 +111,13 @@ type PluginConfig struct {
 	Name    string                 `json:"name"`
 	Enabled bool                   `json:"enabled"`
 	Config  map[string]interface{} `json:"config"`
+}
+
+// WebUIConfig contains Web UI authentication settings
+type WebUIConfig struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Enabled  bool   `json:"enabled"`
 }
 
 // NewConfig creates a new configuration instance

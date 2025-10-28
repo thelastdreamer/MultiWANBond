@@ -452,11 +452,31 @@ func (s *Server) handleHealthChecks(w http.ResponseWriter, r *http.Request) {
 
 // handleRouting handles routing policy queries
 func (s *Server) handleRouting(w http.ResponseWriter, r *http.Request) {
+	s.configMu.RLock()
+	cfg := s.bondConfig
+	s.configMu.RUnlock()
+
+	if cfg == nil {
+		s.sendError(w, "Configuration not loaded", http.StatusInternalServerError)
+		return
+	}
+
 	switch r.Method {
 	case http.MethodGet:
-		// TODO: Implement routing policy storage in config
-		// For now, return empty list
-		policies := make([]*RoutingPolicy, 0)
+		// Return stored routing policies
+		policies := make([]*RoutingPolicy, 0, len(cfg.Routing.Policies))
+		for _, p := range cfg.Routing.Policies {
+			policies = append(policies, &RoutingPolicy{
+				ID:          p.ID,
+				Name:        p.Name,
+				Description: p.Description,
+				Type:        p.Type,
+				Match:       p.Match,
+				TargetWAN:   p.TargetWAN,
+				Priority:    p.Priority,
+				Enabled:     p.Enabled,
+			})
+		}
 		s.sendJSON(w, APIResponse{
 			Success: true,
 			Data:    policies,
@@ -469,18 +489,90 @@ func (s *Server) handleRouting(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// TODO: Store routing policy in configuration
-		// For now, just acknowledge the request
+		// Add new routing policy to configuration
+		s.configMu.Lock()
+
+		// Generate ID
+		maxID := 0
+		for _, p := range s.bondConfig.Routing.Policies {
+			if p.ID > maxID {
+				maxID = p.ID
+			}
+		}
+		policy.ID = maxID + 1
+
+		// Add to config
+		s.bondConfig.Routing.Policies = append(s.bondConfig.Routing.Policies, config.RoutingPolicy{
+			ID:          policy.ID,
+			Name:        policy.Name,
+			Description: policy.Description,
+			Type:        policy.Type,
+			Match:       policy.Match,
+			TargetWAN:   policy.TargetWAN,
+			Priority:    policy.Priority,
+			Enabled:     policy.Enabled,
+		})
+
+		// Save to file
+		if err := s.SaveConfig(); err != nil {
+			s.configMu.Unlock()
+			s.sendError(w, fmt.Sprintf("Failed to save configuration: %v", err), http.StatusInternalServerError)
+			return
+		}
+		s.configMu.Unlock()
+
 		s.sendJSON(w, APIResponse{
 			Success: true,
-			Message: "Routing policy configuration saved (restart required for changes to take effect)",
+			Message: "Routing policy added successfully (restart required for changes to take effect)",
+			Data:    policy,
 		})
 
 	case http.MethodDelete:
-		// TODO: Implement routing policy deletion
+		idParam := r.URL.Query().Get("id")
+		if idParam == "" {
+			s.sendError(w, "Missing policy ID", http.StatusBadRequest)
+			return
+		}
+
+		var id int
+		if _, err := fmt.Sscanf(idParam, "%d", &id); err != nil {
+			s.sendError(w, "Invalid policy ID", http.StatusBadRequest)
+			return
+		}
+
+		// Remove routing policy from configuration
+		s.configMu.Lock()
+
+		// Find and remove policy
+		found := false
+		newPolicies := make([]config.RoutingPolicy, 0, len(s.bondConfig.Routing.Policies)-1)
+		for _, p := range s.bondConfig.Routing.Policies {
+			if p.ID == id {
+				found = true
+				continue
+			}
+			newPolicies = append(newPolicies, p)
+		}
+
+		if !found {
+			s.configMu.Unlock()
+			s.sendError(w, "Routing policy not found", http.StatusNotFound)
+			return
+		}
+
+		s.bondConfig.Routing.Policies = newPolicies
+
+		// Save to file
+		if err := s.SaveConfig(); err != nil {
+			s.configMu.Unlock()
+			s.sendError(w, fmt.Sprintf("Failed to save configuration: %v", err), http.StatusInternalServerError)
+			return
+		}
+		s.configMu.Unlock()
+
 		s.sendJSON(w, APIResponse{
 			Success: true,
-			Message: "Routing policy deleted (restart required for changes to take effect)",
+			Message: "Routing policy deleted successfully (restart required for changes to take effect)",
 		})
 
 	default:

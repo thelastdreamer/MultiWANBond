@@ -185,13 +185,12 @@ type WANConfig struct {
 
 // RoutingPolicy contains routing policy for API
 type RoutingPolicy struct {
+	ID          int    `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Type        string `json:"type"` // "source", "destination", "application"
-	Source      string `json:"source,omitempty"`
-	Destination string `json:"destination,omitempty"`
-	Application string `json:"application,omitempty"`
-	WANID       uint8  `json:"wan_id"`
+	Match       string `json:"match"` // IP, CIDR, domain, or app name based on Type
+	TargetWAN   uint8  `json:"target_wan"` // WAN ID to use
 	Priority    int    `json:"priority"`
 	Enabled     bool   `json:"enabled"`
 }
@@ -424,14 +423,13 @@ func ToFlowInfo(flow *dpi.Flow, wanID uint8) *FlowInfo {
 func ToRoutingPolicyAPI(policy *routing.RoutingPolicy) []RoutingPolicy {
 	policies := make([]RoutingPolicy, 0, len(policy.Rules))
 
-	for _, rule := range policy.Rules {
+	for i, rule := range policy.Rules {
 		policyType := "custom"
-		source := ""
-		dest := ""
+		match := ""
 
 		if rule.SourceNetwork != nil {
 			policyType = "source"
-			source = rule.SourceNetwork.String()
+			match = rule.SourceNetwork.String()
 		}
 		if rule.DestNetwork != nil {
 			if policyType == "source" {
@@ -439,15 +437,16 @@ func ToRoutingPolicyAPI(policy *routing.RoutingPolicy) []RoutingPolicy {
 			} else {
 				policyType = "destination"
 			}
-			dest = rule.DestNetwork.String()
+			match = rule.DestNetwork.String()
 		}
 
 		policies = append(policies, RoutingPolicy{
+			ID:          i + 1,
 			Name:        policy.Name,
 			Description: policy.Description,
 			Type:        policyType,
-			Source:      source,
-			Destination: dest,
+			Match:       match,
+			TargetWAN:   0, // TODO: Get from rule if available
 			Priority:    rule.Priority,
 			Enabled:     rule.Enabled,
 		})
