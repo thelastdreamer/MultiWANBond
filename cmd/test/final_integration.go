@@ -97,13 +97,17 @@ func main() {
 	fmt.Println("Phase 5: NAT Traversal")
 	fmt.Println(strings.Repeat("-", 80))
 
-	stunConfig := nat.DefaultSTUNConfig()
-	natManager := nat.NewManager(stunConfig)
-
-	fmt.Printf("✓ NAT manager created\n")
-	fmt.Printf("✓ STUN server: %s\n", stunConfig.PrimaryServer)
-	fmt.Printf("✓ Refresh interval: %v\n", stunConfig.RefreshInterval)
-	results["NAT Traversal"] = natManager != nil
+	natConfig := nat.DefaultNATTraversalConfig()
+	natManager, err := nat.NewManager(natConfig)
+	if err != nil {
+		fmt.Printf("✗ Failed to create NAT manager: %v\n", err)
+		results["NAT Traversal"] = false
+	} else {
+		fmt.Printf("✓ NAT manager created\n")
+		fmt.Printf("✓ STUN server: %s\n", natConfig.STUN.PrimaryServer)
+		fmt.Printf("✓ Refresh interval: %v\n", natConfig.STUN.RefreshInterval)
+		results["NAT Traversal"] = natManager != nil
+	}
 	fmt.Println()
 
 	// Phase 6: Routing
@@ -124,8 +128,7 @@ func main() {
 	fmt.Println(strings.Repeat("-", 80))
 
 	dpiConfig := dpi.DefaultDPIConfig()
-	detector := dpi.NewDetector(dpiConfig)
-	classifier := dpi.NewClassifier(dpiConfig, detector)
+	classifier := dpi.NewClassifier(dpiConfig)
 
 	srcIP := net.ParseIP("192.168.1.100")
 	dstIP := net.ParseIP("142.250.185.46")
@@ -137,7 +140,7 @@ func main() {
 	fmt.Printf("✓ Classifier created (max %d flows)\n", dpiConfig.MaxFlows)
 	if classification != nil {
 		fmt.Printf("✓ Detected: %s (category: %s, confidence: %.2f)\n",
-			classification.Protocol.Name(), classification.Category.String(), classification.Confidence)
+			classification.Protocol.String(), classification.Category.String(), classification.Confidence)
 	}
 	if flow != nil {
 		fmt.Printf("✓ Flow tracked: %d packets\n", flow.Packets)
@@ -229,29 +232,34 @@ func main() {
 	fmt.Println("Phase 11: Network Interface Detection")
 	fmt.Println(strings.Repeat("-", 80))
 
-	detector2 := network.NewDetector()
-	interfaces, err := detector2.DetectInterfaces()
+	detector2, err := network.NewDetector()
+	if err != nil {
+		fmt.Printf("✗ Failed to create network detector: %v\n", err)
+		results["Network Detection"] = false
+	} else {
+		interfaces, err := detector2.DetectAll()
 
-	if err == nil {
-		physicalCount := 0
-		upCount := 0
-		for _, iface := range interfaces {
-			if iface.Type == network.InterfaceTypePhysical {
-				physicalCount++
-				if iface.AdminState == network.StateUp {
-					upCount++
+		if err == nil {
+			physicalCount := 0
+			upCount := 0
+			for _, iface := range interfaces {
+				if iface.Type == network.InterfacePhysical {
+					physicalCount++
+					if iface.AdminState == "up" {
+						upCount++
+					}
 				}
 			}
-		}
 
-		fmt.Printf("✓ Network detector created\n")
-		fmt.Printf("✓ Total interfaces detected: %d\n", len(interfaces))
-		fmt.Printf("✓ Physical interfaces: %d\n", physicalCount)
-		fmt.Printf("✓ Interfaces up: %d\n", upCount)
-		results["Network Detection"] = len(interfaces) > 0
-	} else {
-		fmt.Printf("✗ Network detection failed: %v\n", err)
-		results["Network Detection"] = false
+			fmt.Printf("✓ Network detector created\n")
+			fmt.Printf("✓ Total interfaces detected: %d\n", len(interfaces))
+			fmt.Printf("✓ Physical interfaces: %d\n", physicalCount)
+			fmt.Printf("✓ Interfaces up: %d\n", upCount)
+			results["Network Detection"] = len(interfaces) > 0
+		} else {
+			fmt.Printf("✗ Network detection failed: %v\n", err)
+			results["Network Detection"] = false
+		}
 	}
 	fmt.Println()
 

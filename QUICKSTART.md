@@ -38,13 +38,13 @@ Create a file named `config.json` in your MultiWANBond directory:
   "wans": [
     {
       "id": 1,
-      "interface_name": "eth0",
+      "interface_name": "Wi-Fi",
       "enabled": true,
       "weight": 100
     },
     {
       "id": 2,
-      "interface_name": "wlan0",
+      "interface_name": "NordLynx",
       "enabled": true,
       "weight": 80
     }

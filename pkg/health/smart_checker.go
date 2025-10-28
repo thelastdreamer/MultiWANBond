@@ -356,15 +356,27 @@ func (sc *SmartChecker) determineStatus() WANStatus {
 func (sc *SmartChecker) adjustInterval(result *CheckResult) {
 	if result.Success {
 		// On success, gradually increase interval (less frequent checks)
-		sc.currentInterval = time.Duration(float64(sc.currentInterval) * sc.config.SuccessSpeedup)
-		if sc.currentInterval > sc.config.MaxInterval {
+		newInterval := time.Duration(float64(sc.currentInterval) * sc.config.FailureBackoff)
+		if newInterval > sc.config.MaxInterval {
 			sc.currentInterval = sc.config.MaxInterval
+		} else if newInterval > 0 {
+			sc.currentInterval = newInterval
+		}
+		// Ensure we never go below MinInterval
+		if sc.currentInterval < sc.config.MinInterval {
+			sc.currentInterval = sc.config.MinInterval
 		}
 	} else {
 		// On failure, decrease interval (more frequent checks)
-		sc.currentInterval = time.Duration(float64(sc.currentInterval) * sc.config.FailureBackoff)
-		if sc.currentInterval < sc.config.MinInterval {
+		newInterval := time.Duration(float64(sc.currentInterval) * sc.config.SuccessSpeedup)
+		if newInterval < sc.config.MinInterval {
 			sc.currentInterval = sc.config.MinInterval
+		} else if newInterval > 0 {
+			sc.currentInterval = newInterval
+		}
+		// Ensure we never go above MaxInterval
+		if sc.currentInterval > sc.config.MaxInterval {
+			sc.currentInterval = sc.config.MaxInterval
 		}
 	}
 }
