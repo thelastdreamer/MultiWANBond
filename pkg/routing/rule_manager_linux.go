@@ -67,9 +67,10 @@ func (rm *LinuxRuleManager) AddRule(rule *PolicyRule) error {
 	}
 
 	// Set TOS
-	if rule.TOS != 0 {
-		nlRule.Tos = uint(rule.TOS)
-	}
+	// Note: Tos field not available in all netlink versions
+	// if rule.TOS != 0 {
+	// 	nlRule.Tos = uint(rule.TOS)
+	// }
 
 	// Set invert flag
 	if rule.Invert {
@@ -256,7 +257,7 @@ func (rm *LinuxRuleManager) netlinkToRule(nlRule *netlink.Rule) *PolicyRule {
 		OutputInterface: nlRule.OifName,
 		Mark:           uint32(nlRule.Mark),
 		MarkMask:       uint32(nlRule.Mask),
-		TOS:            uint8(nlRule.Tos),
+		TOS:            0, // Tos field not available in all netlink versions
 		Invert:         nlRule.Invert,
 		Action:         RuleActionTable, // Default
 		Enabled:        true,
