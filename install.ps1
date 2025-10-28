@@ -47,11 +47,13 @@ try {
         if ($major -ge 1 -and $minor -ge 21) {
             Write-Success "  ✓ Go $major.$minor is installed"
             $goInstalled = $true
-        } else {
+        }
+        else {
             Write-Warning "  ⚠ Go $major.$minor is installed but version 1.21+ is required"
         }
     }
-} catch {
+}
+catch {
     Write-Warning "  ⚠ Go is not installed"
 }
 
@@ -61,7 +63,8 @@ if (-not $goInstalled) {
 
     if ($AutoYes) {
         $install = "Y"
-    } else {
+    }
+    else {
         $install = Read-Host "Would you like to download Go now? (Y/N)"
     }
 
@@ -73,7 +76,8 @@ if (-not $goInstalled) {
         Write-Host ""
         pause
         exit 1
-    } else {
+    }
+    else {
         Write-Error "Go is required. Exiting installer."
         exit 1
     }
@@ -89,7 +93,8 @@ try {
         Write-Success "  ✓ Git is installed"
         $gitInstalled = $true
     }
-} catch {
+}
+catch {
     Write-Warning "  ⚠ Git is not installed"
 }
 
@@ -99,7 +104,8 @@ if (-not $gitInstalled) {
 
     if ($AutoYes) {
         $install = "Y"
-    } else {
+    }
+    else {
         $install = Read-Host "Would you like to download Git now? (Y/N)"
     }
 
@@ -128,7 +134,8 @@ try {
     [Environment]::SetEnvironmentVariable("GOPATH", $goPath, "User")
     [Environment]::SetEnvironmentVariable("GO111MODULE", "on", "User")
     Write-Success "  ✓ Go environment configured"
-} catch {
+}
+catch {
     Write-Warning "  ⚠ Could not set environment variables permanently"
 }
 
@@ -151,7 +158,8 @@ if (Test-Path $installDir) {
 
     if ($AutoYes) {
         $update = "Y"
-    } else {
+    }
+    else {
         $update = Read-Host "Would you like to update it? (Y/N)"
     }
 
@@ -160,16 +168,19 @@ if (Test-Path $installDir) {
         Set-Location $installDir
         if ($gitInstalled) {
             & git pull
-        } else {
+        }
+        else {
             Write-Warning "  Git not installed, skipping update"
         }
     }
-} else {
+}
+else {
     Write-Info "  Downloading MultiWANBond..."
 
     if ($gitInstalled) {
         & git clone https://github.com/thelastdreamer/MultiWANBond.git $installDir
-    } else {
+    }
+    else {
         Write-Info "  Downloading ZIP (Git not available)..."
         $zipUrl = "https://github.com/thelastdreamer/MultiWANBond/archive/refs/heads/main.zip"
         $zipFile = "$env:TEMP\MultiWANBond.zip"
@@ -191,7 +202,8 @@ Set-Location $installDir
 try {
     & go mod download
     Write-Success "  ✓ Dependencies downloaded"
-} catch {
+}
+catch {
     Write-Error "  ✗ Failed to download dependencies"
     Write-Error "  Error: $_"
     exit 1
@@ -204,7 +216,8 @@ try {
     $env:CGO_ENABLED = "0"
     & go build -ldflags "-s -w" -o "$installDir\multiwanbond.exe" .\cmd\server\main.go
     Write-Success "  ✓ MultiWANBond built successfully"
-} catch {
+}
+catch {
     Write-Error "  ✗ Build failed"
     Write-Error "  Error: $_"
     exit 1
@@ -251,7 +264,8 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "  .\multiwanbond.exe wan list"
     Write-Host ""
     Write-Host "================================================================" -ForegroundColor Green
-} else {
+}
+else {
     Write-Warning "Setup wizard was cancelled or encountered an error."
     Write-Info "You can run it again with:"
     Write-Host "  cd `"$installDir`""
