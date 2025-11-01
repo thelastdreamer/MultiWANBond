@@ -38,9 +38,24 @@ type Server struct {
 	bondConfig   *config.BondConfig
 	configMu     sync.RWMutex
 
+	// Backend component references
+	metricsData  *MetricsData
+	metricsMu    sync.RWMutex
+
 	// Control
 	running bool
 	stopCh  chan struct{}
+}
+
+// MetricsData holds backend metrics for the Web UI
+type MetricsData struct {
+	WANMetrics   map[uint8]*protocol.WANMetrics
+	Flows        []FlowInfo
+	Alerts       []Alert
+	NATInfo      *NATInfo
+	HealthChecks []HealthCheckInfo
+	TrafficStats *TrafficStats
+	LastUpdate   time.Time
 }
 
 // NewServer creates a new web UI server
@@ -50,12 +65,17 @@ func NewServer(config *Config) *Server {
 	}
 
 	return &Server{
-		config:    config,
-		wsClients: make(map[*WSClient]bool),
-		eventChan: make(chan *Event, 1000),
-		startTime: time.Now(),
-		stats:     &DashboardStats{},
-		stopCh:    make(chan struct{}),
+		config:      config,
+		wsClients:   make(map[*WSClient]bool),
+		eventChan:   make(chan *Event, 1000),
+		startTime:   time.Now(),
+		stats:       &DashboardStats{},
+		stopCh:      make(chan struct{}),
+		metricsData: &MetricsData{
+			WANMetrics: make(map[uint8]*protocol.WANMetrics),
+			Flows:      make([]FlowInfo, 0),
+			Alerts:     make([]Alert, 0),
+		},
 	}
 }
 
@@ -394,7 +414,14 @@ func (s *Server) handleFlows(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	flows := make([]*FlowInfo, 0)
+	s.metricsMu.RLock()
+	flows := s.metricsData.Flows
+	s.metricsMu.RUnlock()
+
+	if flows == nil {
+		flows = make([]FlowInfo, 0)
+	}
+
 	s.sendJSON(w, APIResponse{
 		Success: true,
 		Data:    flows,
@@ -408,12 +435,18 @@ func (s *Server) handleTraffic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stats := &TrafficStats{
-		Timestamp:     time.Now(),
-		BytesPerWAN:   make(map[uint8]uint64),
-		PacketsPerWAN: make(map[uint8]uint64),
-		TopProtocols:  make([]ProtocolStat, 0),
-		TopFlows:      make([]FlowInfo, 0),
+	s.metricsMu.RLock()
+	stats := s.metricsData.TrafficStats
+	s.metricsMu.RUnlock()
+
+	if stats == nil {
+		stats = &TrafficStats{
+			Timestamp:     time.Now(),
+			BytesPerWAN:   make(map[uint8]uint64),
+			PacketsPerWAN: make(map[uint8]uint64),
+			TopProtocols:  make([]ProtocolStat, 0),
+			TopFlows:      make([]FlowInfo, 0),
+		}
 	}
 
 	s.sendJSON(w, APIResponse{
@@ -429,7 +462,22 @@ func (s *Server) handleNATInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	natInfo := &NATInfo{}
+	s.metricsMu.RLock()
+	natInfo := s.metricsData.NATInfo
+	s.metricsMu.RUnlock()
+
+	if natInfo == nil {
+		// Return default NAT info if not yet available
+		natInfo = &NATInfo{
+			NATType:       "Unknown",
+			LocalAddr:     "",
+			PublicAddr:    "",
+			CGNATDetected: false,
+			CanDirect:     false,
+			NeedsRelay:    false,
+		}
+	}
+
 	s.sendJSON(w, APIResponse{
 		Success: true,
 		Data:    natInfo,
@@ -443,7 +491,14 @@ func (s *Server) handleHealthChecks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	checks := make([]*HealthCheckInfo, 0)
+	s.metricsMu.RLock()
+	checks := s.metricsData.HealthChecks
+	s.metricsMu.RUnlock()
+
+	if checks == nil {
+		checks = make([]HealthCheckInfo, 0)
+	}
+
 	s.sendJSON(w, APIResponse{
 		Success: true,
 		Data:    checks,
@@ -667,16 +722,31 @@ func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
 
 // handleAlerts returns system alerts
 func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+	switch r.Method {
+	case http.MethodGet:
+		s.metricsMu.RLock()
+		alerts := s.metricsData.Alerts
+		s.metricsMu.RUnlock()
 
-	alerts := make([]*Alert, 0)
-	s.sendJSON(w, APIResponse{
-		Success: true,
-		Data:    alerts,
-	})
+		if alerts == nil {
+			alerts = make([]Alert, 0)
+		}
+
+		s.sendJSON(w, APIResponse{
+			Success: true,
+			Data:    alerts,
+		})
+
+	case http.MethodDelete:
+		s.ClearAlerts()
+		s.sendJSON(w, APIResponse{
+			Success: true,
+			Message: "All alerts cleared",
+		})
+
+	default:
+		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 // handleMetrics returns Prometheus-style metrics
@@ -853,6 +923,70 @@ func (s *Server) UpdateStats(metrics map[uint8]*protocol.WANMetrics, wans map[ui
 
 	s.stats.Uptime = time.Since(s.startTime)
 	s.stats.Timestamp = time.Now()
+
+	// Update metrics data for other handlers
+	s.metricsMu.Lock()
+	s.metricsData.WANMetrics = metrics
+	s.metricsData.LastUpdate = time.Now()
+	s.metricsMu.Unlock()
+}
+
+// UpdateNATInfo updates NAT traversal information
+func (s *Server) UpdateNATInfo(natInfo *NATInfo) {
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.metricsData.NATInfo = natInfo
+}
+
+// AddAlert adds a new alert
+func (s *Server) AddAlert(alert Alert) {
+	s.metricsMu.Lock()
+	s.metricsData.Alerts = append(s.metricsData.Alerts, alert)
+	s.metricsMu.Unlock()
+
+	// Publish alert event to WebSocket clients
+	s.PublishEvent(&Event{
+		Type:      EventSystemAlert,
+		Timestamp: time.Now(),
+		Message:   alert.Message,
+		Data:      alert,
+		Severity:  alert.Severity,
+	})
+}
+
+// UpdateFlows updates active network flows
+func (s *Server) UpdateFlows(flows []FlowInfo) {
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.metricsData.Flows = flows
+}
+
+// UpdateHealthChecks updates health check information
+func (s *Server) UpdateHealthChecks(checks []HealthCheckInfo) {
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.metricsData.HealthChecks = checks
+}
+
+// UpdateTrafficStats updates traffic statistics
+func (s *Server) UpdateTrafficStats(stats *TrafficStats) {
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.metricsData.TrafficStats = stats
+
+	// Publish traffic update event
+	s.PublishEvent(&Event{
+		Type:      EventTrafficUpdate,
+		Timestamp: time.Now(),
+		Data:      stats,
+	})
+}
+
+// ClearAlerts clears all alerts
+func (s *Server) ClearAlerts() {
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.metricsData.Alerts = make([]Alert, 0)
 }
 
 // SetConfigFile sets the configuration file path and loads it

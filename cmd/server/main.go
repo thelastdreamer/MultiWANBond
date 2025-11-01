@@ -296,12 +296,188 @@ func metricsUpdater(b *bonder.Bonder, server *webui.Server, interval time.Durati
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
+	// Alert thresholds
+	const (
+		highLatencyThreshold  = 200 * time.Millisecond
+		highJitterThreshold   = 50 * time.Millisecond
+		highPacketLossPercent = 5.0
+	)
+
+	// Track previous states to detect changes
+	prevStates := make(map[uint8]interface{})
+	alertCounter := 0
+
 	for range ticker.C {
 		metrics := b.GetMetrics()
 		wans := b.GetWANs()
 
 		// Update Web UI statistics
 		server.UpdateStats(metrics, wans)
+
+		// Update health checks
+		healthChecks := make([]webui.HealthCheckInfo, 0, len(metrics))
+		for id, m := range metrics {
+			wan := wans[id]
+			if wan == nil {
+				continue
+			}
+
+			healthChecks = append(healthChecks, webui.HealthCheckInfo{
+				WANID:      id,
+				Method:     "ICMP",
+				Target:     wan.RemoteAddr.String(),
+				Interval:   200, // 200ms interval
+				LastCheck:  time.Now(),
+				Status:     getHealthStatus(m),
+				Latency:    m.Latency.Milliseconds(),
+				Jitter:     m.Jitter.Milliseconds(),
+				PacketLoss: m.PacketLoss,
+				Successes:  int(m.PacketsRecv),
+				Failures:   int(m.PacketsLost),
+			})
+		}
+		server.UpdateHealthChecks(healthChecks)
+
+		// Update traffic statistics
+		totalBytes := uint64(0)
+		totalPackets := uint64(0)
+		bytesPerWAN := make(map[uint8]uint64)
+		packetsPerWAN := make(map[uint8]uint64)
+
+		for id, m := range metrics {
+			bytesPerWAN[id] = m.BytesSent + m.BytesReceived
+			packetsPerWAN[id] = m.PacketsSent + m.PacketsRecv
+			totalBytes += bytesPerWAN[id]
+			totalPackets += packetsPerWAN[id]
+		}
+
+		trafficStats := &webui.TrafficStats{
+			Timestamp:     time.Now(),
+			TotalBytes:    totalBytes,
+			TotalPackets:  totalPackets,
+			BytesPerWAN:   bytesPerWAN,
+			PacketsPerWAN: packetsPerWAN,
+			TopProtocols:  make([]webui.ProtocolStat, 0),
+			TopFlows:      make([]webui.FlowInfo, 0),
+		}
+		server.UpdateTrafficStats(trafficStats)
+
+		// Generate alerts for health issues
+		for id, m := range metrics {
+			wan := wans[id]
+			if wan == nil {
+				continue
+			}
+
+			// Check for WAN state changes
+			if prevState, exists := prevStates[id]; exists {
+				if prevState != wan.State {
+					alertCounter++
+					server.AddAlert(webui.Alert{
+						ID:        fmt.Sprintf("alert-%d", alertCounter),
+						Type:      "wan_state_change",
+						Severity:  getAlertSeverity(wan.State),
+						Message:   fmt.Sprintf("WAN %d (%s) state changed: %s", id, wan.Name, getStateName(wan.State)),
+						Timestamp: time.Now(),
+						Resolved:  false,
+					})
+				}
+			}
+			prevStates[id] = wan.State
+
+			// Check latency
+			if m.Latency > highLatencyThreshold {
+				alertCounter++
+				server.AddAlert(webui.Alert{
+					ID:        fmt.Sprintf("alert-%d", alertCounter),
+					Type:      "high_latency",
+					Severity:  "warning",
+					Message:   fmt.Sprintf("WAN %d (%s) high latency: %v (threshold: %v)", id, wan.Name, m.Latency, highLatencyThreshold),
+					Timestamp: time.Now(),
+					Resolved:  false,
+				})
+			}
+
+			// Check jitter
+			if m.Jitter > highJitterThreshold {
+				alertCounter++
+				server.AddAlert(webui.Alert{
+					ID:        fmt.Sprintf("alert-%d", alertCounter),
+					Type:      "high_jitter",
+					Severity:  "warning",
+					Message:   fmt.Sprintf("WAN %d (%s) high jitter: %v (threshold: %v)", id, wan.Name, m.Jitter, highJitterThreshold),
+					Timestamp: time.Now(),
+					Resolved:  false,
+				})
+			}
+
+			// Check packet loss
+			if m.PacketLoss > highPacketLossPercent {
+				alertCounter++
+				server.AddAlert(webui.Alert{
+					ID:        fmt.Sprintf("alert-%d", alertCounter),
+					Type:      "high_packet_loss",
+					Severity:  "error",
+					Message:   fmt.Sprintf("WAN %d (%s) high packet loss: %.2f%% (threshold: %.2f%%)", id, wan.Name, m.PacketLoss, highPacketLossPercent),
+					Timestamp: time.Now(),
+					Resolved:  false,
+				})
+			}
+		}
+
+		// TODO: Update NAT info when NAT manager is integrated
+		// natInfo := &webui.NATInfo{
+		//     NATType:       natMgr.GetType(),
+		//     PublicAddr:    natMgr.GetPublicIP(),
+		//     CGNATDetected: natMgr.IsCGNAT(),
+		//     CanDirect:     natMgr.CanDirectConnect(),
+		// }
+		// server.UpdateNATInfo(natInfo)
+
+		// TODO: Update flows when DPI is integrated
+		// flows := make([]webui.FlowInfo, 0)
+		// for _, flow := range dpiClassifier.GetActiveFlows() {
+		//     flows = append(flows, webui.FlowInfo{
+		//         SrcAddr:    flow.SrcAddr,
+		//         DstAddr:    flow.DstAddr,
+		//         Protocol:   flow.Protocol,
+		//         BytesSent:  flow.BytesSent,
+		//         BytesRecv:  flow.BytesRecv,
+		//         StartTime:  flow.StartTime,
+		//     })
+		// }
+		// server.UpdateFlows(flows)
+	}
+}
+
+// getHealthStatus returns health status based on metrics
+func getHealthStatus(m *protocol.WANMetrics) string {
+	if m.PacketLoss > 10 {
+		return "critical"
+	}
+	if m.PacketLoss > 5 || m.Latency > 200*time.Millisecond {
+		return "degraded"
+	}
+	if m.Latency > 100*time.Millisecond {
+		return "warning"
+	}
+	return "healthy"
+}
+
+// getAlertSeverity returns alert severity based on WAN state
+func getAlertSeverity(state interface{}) string {
+	switch s := state.(type) {
+	case uint8:
+		switch s {
+		case 0: // Down
+			return "error"
+		case 3: // Degraded
+			return "warning"
+		default:
+			return "info"
+		}
+	default:
+		return "info"
 	}
 }
 
