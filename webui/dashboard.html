@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MultiWANBond - Complete Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #2c3e50;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .header-nav {
+            display: flex;
+            gap: 10px;
+        }
+
+        .header-nav button {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .header-nav button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .alert-badge {
+            background: #e74c3c;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 11px;
+            margin-left: 5px;
+        }
+
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: #2ecc71;
+        }
+
+        .status-dot.disconnected {
+            background: #e74c3c;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .card h3 {
+            color: #667eea;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 15px;
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .metric-row:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .wan-card {
+            border-left: 4px solid;
+            transition: transform 0.2s;
+        }
+
+        .wan-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .wan-card.status-up {
+            border-left-color: #2ecc71;
+        }
+
+        .wan-card.status-degraded {
+            border-left-color: #f39c12;
+        }
+
+        .wan-card.status-down {
+            border-left-color: #e74c3c;
+        }
+
+        .wan-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .wan-name {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-badge.up {
+            background: #d5f4e6;
+            color: #27ae60;
+        }
+
+        .status-badge.degraded {
+            background: #fef5e7;
+            color: #f39c12;
+        }
+
+        .status-badge.down {
+            background: #fadbd8;
+            color: #e74c3c;
+        }
+
+        .alert-panel {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .alert-item {
+            padding: 12px;
+            border-left: 3px solid;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .alert-item.error {
+            background: #fadbd8;
+            border-left-color: #e74c3c;
+        }
+
+        .alert-item.warning {
+            background: #fef5e7;
+            border-left-color: #f39c12;
+        }
+
+        .alert-item.info {
+            background: #ebf5fb;
+            border-left-color: #3498db;
+        }
+
+        .alert-time {
+            font-size: 11px;
+            color: #7f8c8d;
+            margin-top: 4px;
+        }
+
+        .nat-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .nat-warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #856404;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table th {
+            background: #f8f9fa;
+            padding: 10px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            color: #7f8c8d;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .table td {
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+            font-size: 13px;
+        }
+
+        .table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge.success {
+            background: #d5f4e6;
+            color: #27ae60;
+        }
+
+        .badge.danger {
+            background: #fadbd8;
+            color: #e74c3c;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #95a5a6;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .chart-container {
+            height: 200px;
+            margin: 20px 0;
+        }
+
+        @media (max-width: 768px) {
+            .grid-2, .grid-3, .grid-4 {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div>
+                <h1>🚀 MultiWANBond Dashboard</h1>
+                <div class="connection-status">
+                    <span class="status-dot connected" id="wsStatus"></span>
+                    <span id="wsStatusText">Connected</span>
+                </div>
+            </div>
+            <div class="header-nav">
+                <button onclick="location.href='dashboard.html'">Dashboard</button>
+                <button onclick="location.href='config.html'">Configuration</button>
+                <button onclick="showAlerts()">
+                    Alerts <span class="alert-badge" id="alertCount" style="display:none;">0</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- System Overview -->
+        <div class="section">
+            <div class="section-title">
+                <span>System Overview</span>
+                <span style="font-size: 12px; color: #7f8c8d;">Last updated: <span id="lastUpdate">-</span></span>
+            </div>
+            <div class="grid-4">
+                <div class="card">
+                    <h3>Uptime</h3>
+                    <div class="metric-value" id="uptime">-</div>
+                </div>
+                <div class="card">
+                    <h3>Active WANs</h3>
+                    <div class="metric-value" id="activeWANs">-</div>
+                </div>
+                <div class="card">
+                    <h3>Total Traffic</h3>
+                    <div class="metric-value" id="totalTraffic">-</div>
+                </div>
+                <div class="card">
+                    <h3>Current Speed</h3>
+                    <div class="metric-value" id="currentSpeed">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NAT Status -->
+        <div class="section">
+            <div class="section-title">NAT & Connection Status</div>
+            <div class="card">
+                <div class="nat-info">
+                    <div class="metric-row">
+                        <span class="metric-label">NAT Type:</span>
+                        <span class="metric-value" id="natType">Unknown</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Public IP:</span>
+                        <span class="metric-value" id="publicIP">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Connection Method:</span>
+                        <span class="metric-value" id="connMethod">-</span>
+                    </div>
+                </div>
+                <div id="cgnatWarning" style="display:none;" class="nat-warning">
+                    ⚠️ CGNAT Detected - You are behind Carrier-Grade NAT. Direct connections may not be possible.
+                </div>
+            </div>
+        </div>
+
+        <!-- WAN Interfaces -->
+        <div class="section">
+            <div class="section-title">WAN Interfaces</div>
+            <div class="grid-2" id="wanList">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📡</div>
+                    <div>Loading WAN interfaces...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alerts -->
+        <div class="section">
+            <div class="section-title">
+                <span>Recent Alerts</span>
+                <button class="btn btn-primary" onclick="clearAlerts()">Clear All</button>
+            </div>
+            <div class="card">
+                <div class="alert-panel" id="alertPanel">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔔</div>
+                        <div>No alerts</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Flows -->
+        <div class="section">
+            <div class="section-title">Active Network Flows</div>
+            <div class="card">
+                <table class="table" id="flowsTable">
+                    <thead>
+                        <tr>
+                            <th>Application</th>
+                            <th>Source</th>
+                            <th>Destination</th>
+                            <th>WAN</th>
+                            <th>Traffic</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="5" class="empty-state">No active flows</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let reconnectInterval = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            connectWebSocket();
+            loadDashboard();
+            loadWANStatus();
+            loadNATInfo();
+            loadAlerts();
+            loadFlows();
+
+            // Refresh every 5 seconds as fallback
+            setInterval(() => {
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    loadDashboard();
+                    loadWANStatus();
+                }
+            }, 5000);
+        });
+
+        // WebSocket Connection
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                updateConnectionStatus(true);
+                if (reconnectInterval) {
+                    clearInterval(reconnectInterval);
+                    reconnectInterval = null;
+                }
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleRealtimeUpdate(data);
+                } catch (e) {
+                    console.error('WebSocket message error:', e);
+                }
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                updateConnectionStatus(false);
+                // Reconnect after 3 seconds
+                if (!reconnectInterval) {
+                    reconnectInterval = setInterval(() => {
+                        connectWebSocket();
+                    }, 3000);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        function updateConnectionStatus(connected) {
+            const dot = document.getElementById('wsStatus');
+            const text = document.getElementById('wsStatusText');
+
+            if (connected) {
+                dot.className = 'status-dot connected';
+                text.textContent = 'Live Updates';
+            } else {
+                dot.className = 'status-dot disconnected';
+                text.textContent = 'Reconnecting...';
+            }
+        }
+
+        function handleRealtimeUpdate(data) {
+            console.log('Real-time update:', data.type);
+
+            switch (data.type) {
+                case 'wan_status_change':
+                case 'wan_health_update':
+                    loadWANStatus();
+                    break;
+                case 'system_alert':
+                    addAlert(data.data);
+                    break;
+                case 'traffic_update':
+                    updateTrafficStats(data.data);
+                    break;
+                case 'failover':
+                    showFailoverNotification(data.data);
+                    break;
+            }
+        }
+
+        // Load Dashboard
+        function loadDashboard() {
+            fetch('/api/dashboard')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.data) {
+                        const d = data.data;
+                        document.getElementById('uptime').textContent = formatDuration(d.uptime);
+                        document.getElementById('activeWANs').textContent = `${d.healthy_wans || 0} / ${d.total_wans || 0}`;
+                        document.getElementById('totalTraffic').textContent = formatBytes(d.total_bytes || 0);
+                        document.getElementById('currentSpeed').textContent = formatBytesPerSec(d.current_bps || 0);
+                        document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+                    }
+                })
+                .catch(console.error);
+        }
+
+        // Load WAN Status
+        function loadWANStatus() {
+            fetch('/api/wans/status')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.data) {
+                        displayWANs(data.data);
+                    }
+                })
+                .catch(console.error);
+        }
+
+        function displayWANs(wans) {
+            const container = document.getElementById('wanList');
+
+            if (!wans || wans.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📡</div><div>No WAN interfaces configured</div></div>';
+                return;
+            }
+
+            container.innerHTML = wans.map(wan => `
+                <div class="card wan-card status-${wan.status}">
+                    <div class="wan-header">
+                        <div class="wan-name">${wan.name}</div>
+                        <span class="status-badge ${wan.status}">${wan.status.toUpperCase()}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Interface:</span>
+                        <span>${wan.interface}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Latency:</span>
+                        <span>${wan.latency_ms || 0}ms</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Jitter:</span>
+                        <span>${wan.jitter_ms || 0}ms</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Packet Loss:</span>
+                        <span>${(wan.packet_loss || 0).toFixed(2)}%</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Traffic:</span>
+                        <span>↑${formatBytes(wan.bytes_sent || 0)} ↓${formatBytes(wan.bytes_received || 0)}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Health:</span>
+                        <span>${(wan.health || 0).toFixed(0)}%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${wan.health || 0}%"></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Load NAT Info
+        function loadNATInfo() {
+            fetch('/api/nat')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.data) {
+                        const nat = data.data;
+                        document.getElementById('natType').textContent = nat.nat_type || 'Unknown';
+                        document.getElementById('publicIP').textContent = nat.public_addr || '-';
+
+                        let method = 'Unknown';
+                        if (nat.can_direct_connect) method = 'Direct';
+                        else if (nat.needs_relay) method = 'Relay Server';
+                        else method = 'Hole Punching';
+                        document.getElementById('connMethod').textContent = method;
+
+                        if (nat.cgnat_detected) {
+                            document.getElementById('cgnatWarning').style.display = 'block';
+                        }
+                    }
+                })
+                .catch(console.error);
+        }
+
+        // Load Alerts
+        function loadAlerts() {
+            fetch('/api/alerts')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.data && data.data.length > 0) {
+                        displayAlerts(data.data);
+                        document.getElementById('alertCount').textContent = data.data.length;
+                        document.getElementById('alertCount').style.display = 'inline';
+                    }
+                })
+                .catch(console.error);
+        }
+
+        function displayAlerts(alerts) {
+            const panel = document.getElementById('alertPanel');
+
+            if (!alerts || alerts.length === 0) {
+                panel.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔔</div><div>No alerts</div></div>';
+                return;
+            }
+
+            panel.innerHTML = alerts.map(alert => `
+                <div class="alert-item ${alert.severity}">
+                    <div><strong>${alert.type}:</strong> ${alert.message}</div>
+                    <div class="alert-time">${new Date(alert.timestamp).toLocaleString()}</div>
+                </div>
+            `).join('');
+        }
+
+        function addAlert(alert) {
+            // Add to top of alerts
+            loadAlerts();
+
+            // Update count
+            const countEl = document.getElementById('alertCount');
+            const current = parseInt(countEl.textContent) || 0;
+            countEl.textContent = current + 1;
+            countEl.style.display = 'inline';
+        }
+
+        function clearAlerts() {
+            if (confirm('Clear all alerts?')) {
+                fetch('/api/alerts', { method: 'DELETE' })
+                    .then(() => {
+                        loadAlerts();
+                        document.getElementById('alertCount').style.display = 'none';
+                    })
+                    .catch(console.error);
+            }
+        }
+
+        // Load Flows
+        function loadFlows() {
+            fetch('/api/flows')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.data && data.data.length > 0) {
+                        displayFlows(data.data);
+                    }
+                })
+                .catch(console.error);
+        }
+
+        function displayFlows(flows) {
+            const tbody = document.querySelector('#flowsTable tbody');
+
+            if (!flows || flows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No active flows</td></tr>';
+                return;
+            }
+
+            // Show top 10 flows
+            tbody.innerHTML = flows.slice(0, 10).map(flow => `
+                <tr>
+                    <td>${flow.application || flow.protocol}</td>
+                    <td>${flow.src_ip}:${flow.src_port}</td>
+                    <td>${flow.dst_ip}:${flow.dst_port}</td>
+                    <td>WAN ${flow.wan_id}</td>
+                    <td>${formatBytes(flow.bytes)}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Utility Functions
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function formatBytesPerSec(bps) {
+            return formatBytes(bps) + '/s';
+        }
+
+        function formatDuration(ms) {
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+
+            if (days > 0) return `${days}d ${hours % 24}h`;
+            if (hours > 0) return `${hours}h ${minutes % 60}m`;
+            if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+            return `${seconds}s`;
+        }
+
+        function showAlerts() {
+            document.querySelector('#alertPanel').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function showFailoverNotification(data) {
+            alert(`Failover: WAN ${data.from_wan} → WAN ${data.to_wan}\nReason: ${data.reason}`);
+        }
+
+        function updateTrafficStats(stats) {
+            // Update traffic display in real-time
+            if (stats.total_bytes !== undefined) {
+                document.getElementById('totalTraffic').textContent = formatBytes(stats.total_bytes);
+            }
+            if (stats.current_bps !== undefined) {
+                document.getElementById('currentSpeed').textContent = formatBytesPerSec(stats.current_bps);
+            }
+        }
+    </script>
+</body>
+</html>
