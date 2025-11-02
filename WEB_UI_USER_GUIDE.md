@@ -2,7 +2,7 @@
 
 **Complete end-user guide for the MultiWANBond Web Interface**
 
-**Version**: 1.1
+**Version**: 1.2
 **Last Updated**: November 2, 2025
 
 ---
@@ -724,6 +724,109 @@ Manage your WAN connections:
 2. Click **Delete** at bottom of form
 3. Confirm deletion
 4. Restart MultiWANBond to apply
+
+### Routing Policies Section
+
+Manage policy-based routing to route specific traffic through specific WANs:
+
+**Policy List**:
+```
+┌────────────────────────────────────────────────────────────────────┐
+│ Name              │ Type        │ Match          │ WAN │ Priority │  │
+├───────────────────┼─────────────┼────────────────┼─────┼──────────┼──┤
+│ Video Streaming   │ destination │ 8.8.8.8/32     │  1  │   100    │[✗]│
+│ Work VPN          │ source      │ 192.168.1.0/24 │  2  │   200    │[✗]│
+│ Netflix           │ application │ Netflix        │  1  │   300    │[✗]│
+└────────────────────────────────────────────────────────────────────┘
+[Add Routing Policy]
+```
+
+**Policy Types**:
+
+1. **Source-based**:
+   - Routes traffic from specific source networks
+   - Example: Route all traffic from `192.168.1.0/24` via WAN 2
+   - Match field: Source IP or CIDR (e.g., `192.168.1.50/32`, `10.0.0.0/8`)
+
+2. **Destination-based**:
+   - Routes traffic to specific destinations
+   - Example: Route all traffic to `8.8.8.8` via WAN 1
+   - Match field: Destination IP or CIDR (e.g., `8.8.8.8/32`, `1.1.1.0/24`)
+
+3. **Application-based**:
+   - Routes traffic for specific applications (requires DPI)
+   - Example: Route all Netflix traffic via WAN 1
+   - Match field: Application name (e.g., `Netflix`, `YouTube`, `Zoom`)
+   - ⚠️ Requires Deep Packet Inspection (DPI) enabled
+
+**Adding a Routing Policy**:
+1. Click **Add Routing Policy** button
+2. Fill in policy details:
+   - **Policy Name**: Descriptive name (e.g., "Video Streaming")
+   - **Description**: Optional description
+   - **Policy Type**: Select source, destination, or application
+   - **Source/Destination/Application**: Depends on type selected
+     - Source: Enter source IP or network (e.g., `192.168.1.0/24`)
+     - Destination: Enter destination IP or network (e.g., `8.8.8.8/32`)
+     - Application: Enter application name (e.g., `Netflix`, `YouTube`)
+   - **Target WAN ID**: WAN to route matched traffic through (1-255)
+   - **Priority**: Rule priority - lower numbers = higher priority (0-1000)
+   - **Enabled**: Check to activate immediately
+3. Click **Save Policy**
+4. Restart MultiWANBond to apply changes
+
+**Priority and Evaluation Order**:
+- Policies are evaluated in **priority order** (lower number = evaluated first)
+- First matching policy wins
+- If no policy matches, traffic uses load balancing mode
+- **Recommended priority spacing**: Use multiples of 100 (100, 200, 300...) to allow inserting policies later
+
+**Example Use Cases**:
+
+**Route work VPN through dedicated WAN**:
+```
+Name: Work VPN
+Type: Source-based
+Match: 192.168.1.0/24
+Target WAN: 2
+Priority: 100
+```
+
+**Route video streaming to low-latency WAN**:
+```
+Name: Video Streaming
+Type: Destination-based
+Match: 8.8.8.8/32
+Target WAN: 1
+Priority: 200
+```
+
+**Route Netflix through high-bandwidth WAN**:
+```
+Name: Netflix Traffic
+Type: Application-based
+Match: Netflix
+Target WAN: 1
+Priority: 300
+(Requires DPI enabled)
+```
+
+**Deleting a Policy**:
+1. Click **Delete** button next to policy
+2. Confirm deletion
+3. Restart MultiWANBond to apply
+
+**Best Practices**:
+- Use descriptive policy names
+- Start priority at 100, increment by 100
+- Test policies after adding
+- Document your policies in the Description field
+- Avoid overlapping policies with same priority
+- Use source-based for client routing
+- Use destination-based for server/service routing
+- Use application-based for protocol-specific routing (requires DPI)
+
+⚠️ **Important**: All policy changes require a MultiWANBond restart to take effect!
 
 ### Load Balancing Section
 

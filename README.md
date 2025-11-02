@@ -769,9 +769,15 @@ For more issues, see:
   - 10 visualization panels
   - WAN status, latency, traffic, distribution charts
   - Alert configuration examples
+- ✅ **Routing Policies Web UI** (November 2025)
+  - Full CRUD operations for routing policies
+  - Source-based, destination-based, and application-based routing
+  - Policy priority management
+  - Web UI integration with configuration page
+  - Persistent configuration storage
 
 ### 🚧 In Progress (v1.2)
-- 🚧 Windows/macOS policy routing support
+- 🚧 Windows/macOS policy routing runtime implementation
 - 🚧 Historical data storage for analytics (long-term)
 
 ### 📋 Planned (v1.2+)
