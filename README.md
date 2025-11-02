@@ -775,6 +775,13 @@ For more issues, see:
   - Policy priority management
   - Web UI integration with configuration page
   - Persistent configuration storage
+- ✅ **NAT Traversal & DPI Integration** (November 2025)
+  - Real-time NAT detection via STUN
+  - CGNAT detection and warnings
+  - Deep Packet Inspection with 40+ protocol support
+  - Live flow classification and monitoring
+  - WebSocket real-time updates
+  - Comprehensive API endpoints (/api/nat, /api/flows)
 
 ### 🚧 In Progress (v1.2)
 - 🚧 Windows/macOS policy routing runtime implementation
