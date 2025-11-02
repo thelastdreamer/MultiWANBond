@@ -1,0 +1,87 @@
+{
+  "session": {
+    "local_endpoint": "0.0.0.0:9000",
+    "remote_endpoint": "",
+    "duplicate_packets": false,
+    "duplicate_mode": "fastest",
+    "reorder_buffer": 100,
+    "reorder_timeout": "500ms",
+    "multicast_enabled": false,
+    "multicast_groups": []
+  },
+  "wans": [
+    {
+      "id": 1,
+      "name": "Primary Fiber",
+      "type": "fiber",
+      "local_addr": "127.0.0.1",
+      "remote_addr": "",
+      "max_bandwidth": 125000000,
+      "max_latency": "100ms",
+      "max_jitter": "50ms",
+      "max_packet_loss": 5.0,
+      "health_check_interval": "5s",
+      "failure_threshold": 3,
+      "weight": 100,
+      "enabled": true
+    },
+    {
+      "id": 2,
+      "name": "Backup LTE",
+      "type": "lte",
+      "local_addr": "127.0.0.1",
+      "remote_addr": "",
+      "max_bandwidth": 12500000,
+      "max_latency": "200ms",
+      "max_jitter": "100ms",
+      "max_packet_loss": 10.0,
+      "health_check_interval": "5s",
+      "failure_threshold": 3,
+      "weight": 50,
+      "enabled": true
+    }
+  ],
+  "routing": {
+    "mode": "adaptive",
+    "bandwidth_reset_interval": "1m",
+    "policies": [
+      {
+        "id": 1,
+        "name": "Video Streaming",
+        "description": "Route video traffic through fiber",
+        "type": "destination",
+        "match": "8.8.8.8/32",
+        "target_wan": 1,
+        "priority": 100,
+        "enabled": true
+      },
+      {
+        "id": 2,
+        "name": "Work VPN",
+        "description": "Route work network through LTE",
+        "type": "source",
+        "match": "192.168.1.0/24",
+        "target_wan": 2,
+        "priority": 200,
+        "enabled": true
+      }
+    ]
+  },
+  "fec": {
+    "enabled": true,
+    "redundancy": 0.2,
+    "data_shards": 4,
+    "parity_shards": 2
+  },
+  "monitoring": {
+    "enabled": true,
+    "metrics_interval": "10s",
+    "alerts_enabled": true
+  },
+  "plugins": [],
+  "webui": {
+    "username": "admin",
+    "password": "MultiWAN2025Secure!",
+    "enabled": true
+  }
+}
