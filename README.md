@@ -383,21 +383,37 @@ Mission-critical connectivity:
 
 ## 📚 Documentation
 
+**Complete documentation suite with 17 comprehensive guides covering all aspects of MultiWANBond**
+
 ### Getting Started
+- **[README.md](README.md)** - Project overview and quick start (this file)
 - **[INSTALLATION_GUIDE.md](INSTALLATION_GUIDE.md)** - Complete installation guide for all platforms
 - **[QUICKSTART.md](QUICKSTART.md)** - Quick start guide with examples
 - **[ONE_CLICK_SETUP_COMPLETE.md](ONE_CLICK_SETUP_COMPLETE.md)** - Setup wizard implementation details
 
-### Configuration & Management
-- **[HOW_TO_RUN.md](HOW_TO_RUN.md)** - Running, testing, and deployment guide
+### User Guides
+- **[WEB_UI_USER_GUIDE.md](WEB_UI_USER_GUIDE.md)** - Complete Web UI user guide with tutorials ✨ **NEW**
 - **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Comprehensive troubleshooting guide
-- **[GO_ENVIRONMENT_FIX.md](GO_ENVIRONMENT_FIX.md)** - Fixing Go environment issues
+- **[UPDATE_GUIDE.md](UPDATE_GUIDE.md)** - System update guide for client and server
 
 ### Technical Documentation
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Complete system architecture and design ✨ **NEW**
+- **[API_REFERENCE.md](API_REFERENCE.md)** - REST API and WebSocket documentation ✨ **NEW**
 - **[PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)** - Complete project overview and statistics
-- **[UNIFIED_WEB_UI_IMPLEMENTATION.md](UNIFIED_WEB_UI_IMPLEMENTATION.md)** - Unified Web UI with cookie-based sessions
+
+### Feature Documentation
+- **[UNIFIED_WEB_UI_IMPLEMENTATION.md](UNIFIED_WEB_UI_IMPLEMENTATION.md)** - Unified Web UI implementation details
 - **[NAT_DPI_INTEGRATION.md](NAT_DPI_INTEGRATION.md)** - NAT traversal and DPI integration details
-- **[UPDATE_GUIDE.md](UPDATE_GUIDE.md)** - System update guide for client and server
+
+### Operations & Deployment
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Production deployment guide (Linux, Windows, Docker) ✨ **NEW**
+- **[SECURITY.md](SECURITY.md)** - Security best practices and hardening guide ✨ **NEW**
+- **[PERFORMANCE.md](PERFORMANCE.md)** - Performance tuning and optimization guide ✨ **NEW**
+- **[HOW_TO_RUN.md](HOW_TO_RUN.md)** - Running, testing, and development guide
+
+### Development
+- **[DEVELOPMENT.md](DEVELOPMENT.md)** - Developer and contributor guide ✨ **NEW**
+- **[GO_ENVIRONMENT_FIX.md](GO_ENVIRONMENT_FIX.md)** - Fixing Go environment issues
 
 ## 🌐 Web UI Access
 
