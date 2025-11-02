@@ -353,6 +353,21 @@ func (c *Classifier) GetActiveFlowCount() int {
 	return len(c.flows)
 }
 
+// GetActiveFlows returns all currently active flows
+func (c *Classifier) GetActiveFlows() []*Flow {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	flows := make([]*Flow, 0, len(c.flows))
+	for _, flow := range c.flows {
+		// Create a copy of the flow to avoid race conditions
+		flowCopy := *flow
+		flows = append(flows, &flowCopy)
+	}
+
+	return flows
+}
+
 // GetProtocolStats returns statistics for a specific protocol
 func (c *Classifier) GetProtocolStats(protocol Protocol) (flows, bytes uint64) {
 	c.mu.RLock()

@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/thelastdreamer/MultiWANBond/pkg/config"
+	"github.com/thelastdreamer/MultiWANBond/pkg/dpi"
 	"github.com/thelastdreamer/MultiWANBond/pkg/fec"
 	"github.com/thelastdreamer/MultiWANBond/pkg/health"
+	"github.com/thelastdreamer/MultiWANBond/pkg/nat"
 	"github.com/thelastdreamer/MultiWANBond/pkg/packet"
 	"github.com/thelastdreamer/MultiWANBond/pkg/plugin"
 	"github.com/thelastdreamer/MultiWANBond/pkg/protocol"
@@ -26,6 +28,8 @@ type Bonder struct {
 	processor       *packet.Processor
 	fecManager      *fec.FECManager
 	pluginManager   *plugin.Manager
+	natManager      *nat.Manager
+	dpiClassifier   *dpi.Classifier
 	wans            map[uint8]*protocol.WANInterface
 	sendChan        chan []byte
 	recvChan        chan []byte
@@ -61,6 +65,16 @@ func New(cfg *config.BondConfig) (*Bonder, error) {
 	// Create components
 	routingMode := config.ParseLoadBalanceMode(cfg.Routing.Mode)
 
+	// Create NAT manager (optional, may fail if no internet)
+	natMgr, err := nat.NewManager(nat.DefaultNATTraversalConfig())
+	if err != nil {
+		// NAT manager is optional, continue without it
+		natMgr = nil
+	}
+
+	// Create DPI classifier
+	dpiClass := dpi.NewClassifier(dpi.DefaultDPIConfig())
+
 	bonder := &Bonder{
 		session:       session,
 		healthChecker: health.NewChecker(),
@@ -68,6 +82,8 @@ func New(cfg *config.BondConfig) (*Bonder, error) {
 		processor:     packet.NewProcessor(sessionConfig.ReorderBuffer, sessionConfig.ReorderTimeout),
 		fecManager:    fec.NewFECManager(),
 		pluginManager: plugin.NewManager(),
+		natManager:    natMgr,
+		dpiClassifier: dpiClass,
 		wans:          make(map[uint8]*protocol.WANInterface),
 		sendChan:      make(chan []byte, 1000),
 		recvChan:      make(chan []byte, 1000),
@@ -112,6 +128,19 @@ func (b *Bonder) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to start plugins: %w", err)
 	}
 
+	// Initialize and start NAT manager (if available)
+	if b.natManager != nil {
+		if err := b.natManager.Initialize(); err == nil {
+			b.natManager.Start()
+		}
+		// Don't fail if NAT setup fails, continue without it
+	}
+
+	// Start DPI classifier
+	if b.dpiClassifier != nil {
+		b.dpiClassifier.Start()
+	}
+
 	// Start sender goroutine
 	b.wg.Add(1)
 	go b.senderLoop()
@@ -149,6 +178,16 @@ func (b *Bonder) Stop() error {
 	// Stop components
 	b.healthChecker.Stop()
 	b.pluginManager.StopAll()
+
+	// Stop NAT manager
+	if b.natManager != nil {
+		b.natManager.Stop()
+	}
+
+	// Stop DPI classifier
+	if b.dpiClassifier != nil {
+		b.dpiClassifier.Stop()
+	}
 
 	// Close connections
 	b.mu.Lock()
@@ -533,4 +572,18 @@ func (b *Bonder) addWANFromConfig(cfg *config.WANInterfaceConfig) error {
 	}
 
 	return b.AddWAN(wan)
+}
+
+// GetNATManager returns the NAT traversal manager
+func (b *Bonder) GetNATManager() *nat.Manager {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.natManager
+}
+
+// GetDPIClassifier returns the DPI traffic classifier
+func (b *Bonder) GetDPIClassifier() *dpi.Classifier {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.dpiClassifier
 }

@@ -394,8 +394,13 @@
         <div class="header-content">
             <h1>MultiWANBond Configuration</h1>
             <div class="nav">
-                <button class="nav-button" onclick="window.location.href='index.html'">Dashboard</button>
-                <button class="nav-button active">Configuration</button>
+                <button class="nav-button" onclick="window.location.href='dashboard.html'">Dashboard</button>
+                <button class="nav-button" onclick="window.location.href='flows.html'">Flows</button>
+                <button class="nav-button" onclick="window.location.href='analytics.html'">Analytics</button>
+                <button class="nav-button" onclick="window.location.href='logs.html'">Logs</button>
+                <button class="nav-button active" onclick="window.location.href='config.html'">Configuration</button>
+                <button class="nav-button" onclick="showAlerts()" id="alertsBtn" style="display:none;">Alerts</button>
+                <button class="nav-button" onclick="logout()" style="background: rgba(231, 76, 60, 0.8);">Logout</button>
             </div>
         </div>
     </div>
@@ -988,6 +993,41 @@
             })
             .catch(err => showAlert('Error saving configuration: ' + err.message, 'error'));
         }
+
+        // Session Management
+        function checkSession() {
+            fetch('/api/session')
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) {
+                        window.location.href = '/login.html';
+                    }
+                })
+                .catch(err => {
+                    console.error('Session check failed:', err);
+                    window.location.href = '/login.html';
+                });
+        }
+
+        async function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                try {
+                    await fetch('/api/logout', { method: 'POST' });
+                    window.location.href = '/login.html';
+                } catch (error) {
+                    console.error('Logout failed:', error);
+                    window.location.href = '/login.html';
+                }
+            }
+        }
+
+        function showAlerts() {
+            // Navigate to dashboard alerts section
+            window.location.href = '/dashboard.html#alerts';
+        }
+
+        // Check session on page load
+        checkSession();
 
         // Initialize
         init();

@@ -425,28 +425,59 @@ func metricsUpdater(b *bonder.Bonder, server *webui.Server, interval time.Durati
 			}
 		}
 
-		// TODO: Update NAT info when NAT manager is integrated
-		// natInfo := &webui.NATInfo{
-		//     NATType:       natMgr.GetType(),
-		//     PublicAddr:    natMgr.GetPublicIP(),
-		//     CGNATDetected: natMgr.IsCGNAT(),
-		//     CanDirect:     natMgr.CanDirectConnect(),
-		// }
-		// server.UpdateNATInfo(natInfo)
+		// Update NAT info if NAT manager is available
+		natMgr := b.GetNATManager()
+		if natMgr != nil {
+			natInfo := &webui.NATInfo{
+				NATType:        natMgr.GetNATType().String(),
+				CGNATDetected:  natMgr.IsCGNATDetected(),
+				CanDirect:      natMgr.GetNATType().CanDirectConnect(),
+				NeedsRelay:     natMgr.GetNATType().NeedsRelay(),
+				RelayAvailable: natMgr.GetRelayID() != "",
+			}
 
-		// TODO: Update flows when DPI is integrated
-		// flows := make([]webui.FlowInfo, 0)
-		// for _, flow := range dpiClassifier.GetActiveFlows() {
-		//     flows = append(flows, webui.FlowInfo{
-		//         SrcAddr:    flow.SrcAddr,
-		//         DstAddr:    flow.DstAddr,
-		//         Protocol:   flow.Protocol,
-		//         BytesSent:  flow.BytesSent,
-		//         BytesRecv:  flow.BytesRecv,
-		//         StartTime:  flow.StartTime,
-		//     })
-		// }
-		// server.UpdateFlows(flows)
+			// Get public and local addresses
+			if publicAddr := natMgr.GetPublicAddr(); publicAddr != nil {
+				natInfo.PublicAddr = publicAddr.String()
+			}
+			if localAddr := natMgr.GetLocalAddr(); localAddr != nil {
+				natInfo.LocalAddr = localAddr.String()
+			}
+
+			server.UpdateNATInfo(natInfo)
+		}
+
+		// Update flows if DPI classifier is available
+		dpiClassifier := b.GetDPIClassifier()
+		if dpiClassifier != nil {
+			activeFlows := dpiClassifier.GetActiveFlows()
+			flows := make([]webui.FlowInfo, 0, len(activeFlows))
+
+			for _, flow := range activeFlows {
+				// Calculate duration
+				duration := time.Since(flow.FirstSeen).Milliseconds()
+
+				flowInfo := webui.FlowInfo{
+					SrcIP:       flow.SrcIP.String(),
+					DstIP:       flow.DstIP.String(),
+					SrcPort:     flow.SrcPort,
+					DstPort:     flow.DstPort,
+					Protocol:    flow.Protocol.String(),
+					Application: flow.Protocol.String(), // Use protocol as application name
+					Category:    flow.Category.String(),
+					Packets:     flow.Packets,
+					Bytes:       flow.Bytes,
+					Duration:    duration,
+					FirstSeen:   flow.FirstSeen,
+					LastSeen:    flow.LastSeen,
+					WANID:       0, // TODO: Track which WAN this flow uses
+				}
+
+				flows = append(flows, flowInfo)
+			}
+
+			server.UpdateFlows(flows)
+		}
 	}
 }
 
