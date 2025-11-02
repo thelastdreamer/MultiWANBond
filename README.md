@@ -56,11 +56,16 @@ See [INSTALLATION_GUIDE.md](INSTALLATION_GUIDE.md) for complete installation ins
 - **TLS SNI Extraction**: Identifies HTTPS traffic without decryption
 - **Flow Tracking**: Per-connection statistics and classification
 
-### 🖥️ Web Management Interface
+### 🖥️ Unified Web Management Interface
+- **Single Login System**: Cookie-based authentication with 24-hour sessions
+- **5 Page Dashboard**: Dashboard, Flows, Analytics, Logs, Configuration
+- **Real-Time Updates**: WebSocket integration for live metrics
 - **REST API**: 12 endpoints for complete control
-- **WebSocket Support**: Real-time updates
-- **Dashboard**: Monitor all WANs at a glance
-- **Configuration**: Manage settings via web UI
+- **NAT Status Display**: Real-time NAT type, public IP, CGNAT detection
+- **Flow Analysis**: Deep packet inspection with protocol classification
+- **Traffic Analytics**: Interactive charts with Chart.js (traffic, latency, protocol breakdown)
+- **Log Viewer**: Terminal-style system log viewer with filtering
+- **Professional UI**: Modern, responsive design with unified navigation
 
 ### 📈 Advanced Metrics & Time-Series
 - **Time-Series Database**: In-memory with 7-day retention
@@ -378,13 +383,104 @@ Mission-critical connectivity:
 
 ## 📚 Documentation
 
+### Getting Started
 - **[INSTALLATION_GUIDE.md](INSTALLATION_GUIDE.md)** - Complete installation guide for all platforms
 - **[QUICKSTART.md](QUICKSTART.md)** - Quick start guide with examples
-- **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Comprehensive troubleshooting guide
-- **[PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)** - Complete project overview and statistics
-- **[HOW_TO_RUN.md](HOW_TO_RUN.md)** - Running, testing, and deployment guide
-- **[GO_ENVIRONMENT_FIX.md](GO_ENVIRONMENT_FIX.md)** - Fixing Go environment issues
 - **[ONE_CLICK_SETUP_COMPLETE.md](ONE_CLICK_SETUP_COMPLETE.md)** - Setup wizard implementation details
+
+### Configuration & Management
+- **[HOW_TO_RUN.md](HOW_TO_RUN.md)** - Running, testing, and deployment guide
+- **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Comprehensive troubleshooting guide
+- **[GO_ENVIRONMENT_FIX.md](GO_ENVIRONMENT_FIX.md)** - Fixing Go environment issues
+
+### Technical Documentation
+- **[PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)** - Complete project overview and statistics
+- **[UNIFIED_WEB_UI_IMPLEMENTATION.md](UNIFIED_WEB_UI_IMPLEMENTATION.md)** - Unified Web UI with cookie-based sessions
+- **[NAT_DPI_INTEGRATION.md](NAT_DPI_INTEGRATION.md)** - NAT traversal and DPI integration details
+- **[UPDATE_GUIDE.md](UPDATE_GUIDE.md)** - System update guide for client and server
+
+## 🌐 Web UI Access
+
+MultiWANBond includes a professional, unified Web UI for monitoring and configuration.
+
+### Accessing the Web UI
+
+1. **Start MultiWANBond** with Web UI enabled (enabled by default):
+   ```bash
+   multiwanbond start
+   ```
+
+2. **Open your browser** to:
+   ```
+   http://localhost:8080
+   ```
+   Or use your server's IP address: `http://<server-ip>:8080`
+
+3. **Login** with credentials from your config file:
+   - Default username: `admin`
+   - Default password: `MultiWAN2025Secure!`
+
+### Web UI Features
+
+**Dashboard** - Real-time system overview
+- WAN interface status cards with health indicators
+- System metrics (uptime, total traffic, current speed)
+- Active alerts panel
+- NAT status display (type, public IP, CGNAT detection)
+- Top 10 active network flows preview
+- Auto-updates every 1 second via WebSocket
+
+**Flows** - Network flow analysis
+- Deep packet inspection with protocol classification
+- Filterable flow table (by IP, port, protocol, WAN)
+- Flow statistics (total flows, active flows, total traffic)
+- Color-coded protocol badges (HTTP, HTTPS, YouTube, etc.)
+- 8-column detailed view with bytes sent/received
+- Auto-refresh every 5 seconds
+
+**Analytics** - Traffic visualization
+- Interactive charts with Chart.js
+- Traffic over time (line chart)
+- Per-WAN distribution (doughnut chart)
+- WAN latency comparison (bar chart)
+- Protocol breakdown (doughnut chart)
+- Time range selector (1H, 6H, 24H, 7D, 30D)
+- Key metrics cards (24h traffic, avg latency, packet loss, active connections)
+- Auto-refresh every 10 seconds
+
+**Logs** - System event viewer
+- Terminal-style log display with color-coded levels
+- Filter by log level (Debug, Info, Warning, Error)
+- Search functionality
+- Export logs to .txt file
+- Auto-scroll option
+- Log statistics (total, info, warnings, errors)
+- Auto-refresh every 3 seconds
+
+**Configuration** - System settings
+- WAN interface management
+- Load balancing mode selection
+- Health check configuration
+- Security settings
+- Save configuration changes
+
+### Session Management
+
+- **Login Page**: Professional branded login interface
+- **Cookie-Based Sessions**: Secure HttpOnly cookies with 24-hour expiration
+- **Unified Navigation**: Consistent header across all pages
+- **Auto-Logout**: Sessions expire after 24 hours
+- **Session Check**: Automatic validation every 5 minutes (Dashboard)
+
+### Security Features
+
+- **HttpOnly Cookies**: Protection against XSS attacks
+- **SameSite=Strict**: Protection against CSRF attacks
+- **Secure Session IDs**: 32 bytes of cryptographically random data
+- **Server-Side Validation**: All requests validated on server
+- **Auto-Session Cleanup**: Expired sessions removed every hour
+
+For detailed Web UI documentation, see **[UNIFIED_WEB_UI_IMPLEMENTATION.md](UNIFIED_WEB_UI_IMPLEMENTATION.md)**.
 
 ## 🎮 Configuration
 
@@ -624,11 +720,31 @@ For more issues, see:
 - ✅ One-click installers (all platforms)
 - ✅ CLI management commands
 
-### 🚧 In Progress (v1.1)
-- 🚧 Enhanced web dashboard with real-time charts
+### ✅ Recently Completed (v1.1)
+- ✅ **Unified Web UI** with cookie-based sessions (November 2025)
+  - Single login system with 24-hour sessions
+  - 5-page dashboard (Dashboard, Flows, Analytics, Logs, Configuration)
+  - Real-time WebSocket updates
+  - Professional, responsive design
+- ✅ **NAT Traversal Integration** (November 2025)
+  - Real-time NAT type display
+  - Public IP and CGNAT detection
+  - Integrated with Web UI dashboard
+- ✅ **DPI Flow Analysis** (November 2025)
+  - Active network flow display
+  - Protocol classification (40+ protocols)
+  - Flows page with filtering and search
+- ✅ **Traffic Analytics** (November 2025)
+  - Interactive Chart.js visualizations
+  - Per-WAN traffic distribution
+  - Latency comparison charts
+  - Protocol breakdown charts
+
+### 🚧 In Progress (v1.2)
 - 🚧 Windows/macOS policy routing support
 - 🚧 Prometheus metrics endpoint
 - 🚧 Grafana dashboard templates
+- 🚧 Historical data storage for analytics
 
 ### 📋 Planned (v1.2+)
 - QUIC protocol support
