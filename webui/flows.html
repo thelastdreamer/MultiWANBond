@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flows - MultiWANBond</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #2c3e50;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .header-nav {
+            display: flex;
+            gap: 10px;
+        }
+
+        .header-nav button {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .header-nav button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .header-nav button.active {
+            background: rgba(255, 255, 255, 0.4);
+            font-weight: 600;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        tbody td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+            font-size: 14px;
+        }
+
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .empty-state {
+            text-align: center !important;
+            padding: 40px !important;
+            color: #6c757d;
+        }
+
+        .protocol-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .protocol-http {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .protocol-https {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+
+        .protocol-dns {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+
+        .protocol-ssh {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .protocol-unknown {
+            background: #eceff1;
+            color: #607d8b;
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-bar input,
+        .filter-bar select {
+            padding: 8px 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .refresh-btn:hover {
+            background: #5568d3;
+        }
+
+        .refresh-btn:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>🌐 Network Flows</h1>
+            <div class="header-nav">
+                <button onclick="location.href='dashboard.html'">Dashboard</button>
+                <button onclick="location.href='flows.html'" class="active">Flows</button>
+                <button onclick="location.href='analytics.html'">Analytics</button>
+                <button onclick="location.href='logs.html'">Logs</button>
+                <button onclick="location.href='config.html'">Configuration</button>
+                <button onclick="logout()" style="background: rgba(231, 76, 60, 0.8);">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Flow Statistics -->
+        <div class="section">
+            <div class="section-title">
+                <span>Flow Statistics</span>
+                <button class="refresh-btn" onclick="loadFlows()">Refresh</button>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalFlows">0</div>
+                    <div class="stat-label">Total Flows</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="activeFlows">0</div>
+                    <div class="stat-label">Active Flows</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalBytes">0 B</div>
+                    <div class="stat-label">Total Traffic</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="topProtocol">-</div>
+                    <div class="stat-label">Top Protocol</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Flow Filters -->
+        <div class="section">
+            <div class="filter-bar">
+                <input type="text" id="searchFilter" placeholder="Search by IP or port..." onkeyup="filterFlows()">
+                <select id="protocolFilter" onchange="filterFlows()">
+                    <option value="">All Protocols</option>
+                    <option value="HTTP">HTTP</option>
+                    <option value="HTTPS">HTTPS</option>
+                    <option value="DNS">DNS</option>
+                    <option value="SSH">SSH</option>
+                    <option value="FTP">FTP</option>
+                    <option value="SMTP">SMTP</option>
+                </select>
+                <select id="wanFilter" onchange="filterFlows()">
+                    <option value="">All WANs</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Active Flows Table -->
+        <div class="section">
+            <div class="section-title">Active Flows</div>
+            <div class="table-container">
+                <table id="flowsTable">
+                    <thead>
+                        <tr>
+                            <th>Protocol</th>
+                            <th>Source</th>
+                            <th>Destination</th>
+                            <th>WAN</th>
+                            <th>Bytes Sent</th>
+                            <th>Bytes Received</th>
+                            <th>Duration</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="8" class="empty-state">Loading flows...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allFlows = [];
+
+        // Session Management
+        function checkSession() {
+            fetch('/api/session')
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) {
+                        window.location.href = '/login.html';
+                    }
+                })
+                .catch(err => {
+                    console.error('Session check failed:', err);
+                    window.location.href = '/login.html';
+                });
+        }
+
+        async function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                try {
+                    await fetch('/api/logout', { method: 'POST' });
+                    window.location.href = '/login.html';
+                } catch (error) {
+                    console.error('Logout failed:', error);
+                    window.location.href = '/login.html';
+                }
+            }
+        }
+
+        // Check session on page load
+        checkSession();
+
+        // Load Flows
+        function loadFlows() {
+            fetch('/api/flows')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        allFlows = data.data || [];
+                        displayFlows(allFlows);
+                        updateStats(allFlows);
+                    }
+                })
+                .catch(err => {
+                    console.error('Failed to load flows:', err);
+                    document.querySelector('#flowsTable tbody').innerHTML =
+                        '<tr><td colspan="8" class="empty-state">Failed to load flows</td></tr>';
+                });
+        }
+
+        function displayFlows(flows) {
+            const tbody = document.querySelector('#flowsTable tbody');
+
+            if (!flows || flows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No active flows. Flows will appear here when DPI is integrated.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = flows.map(flow => {
+                const protocolClass = `protocol-${(flow.protocol || 'unknown').toLowerCase()}`;
+                const duration = flow.start_time ? Date.now() - new Date(flow.start_time).getTime() : 0;
+
+                return `
+                    <tr>
+                        <td><span class="protocol-badge ${protocolClass}">${flow.protocol || 'Unknown'}</span></td>
+                        <td>${flow.src_ip}:${flow.src_port || '?'}</td>
+                        <td>${flow.dst_ip}:${flow.dst_port || '?'}</td>
+                        <td>WAN ${flow.wan_id || '?'}</td>
+                        <td>${formatBytes(flow.bytes_sent || 0)}</td>
+                        <td>${formatBytes(flow.bytes_recv || 0)}</td>
+                        <td>${formatDuration(duration)}</td>
+                        <td>${flow.state || 'Active'}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateStats(flows) {
+            document.getElementById('totalFlows').textContent = flows.length;
+            document.getElementById('activeFlows').textContent = flows.filter(f => f.state !== 'Closed').length;
+
+            const totalBytes = flows.reduce((sum, f) => sum + (f.bytes_sent || 0) + (f.bytes_recv || 0), 0);
+            document.getElementById('totalBytes').textContent = formatBytes(totalBytes);
+
+            // Calculate top protocol
+            const protocolCounts = {};
+            flows.forEach(f => {
+                const proto = f.protocol || 'Unknown';
+                protocolCounts[proto] = (protocolCounts[proto] || 0) + 1;
+            });
+
+            const topProto = Object.entries(protocolCounts).sort((a, b) => b[1] - a[1])[0];
+            document.getElementById('topProtocol').textContent = topProto ? topProto[0] : '-';
+        }
+
+        function filterFlows() {
+            const search = document.getElementById('searchFilter').value.toLowerCase();
+            const protocol = document.getElementById('protocolFilter').value;
+            const wan = document.getElementById('wanFilter').value;
+
+            const filtered = allFlows.filter(flow => {
+                const matchSearch = !search ||
+                    flow.src_ip?.includes(search) ||
+                    flow.dst_ip?.includes(search) ||
+                    flow.src_port?.toString().includes(search) ||
+                    flow.dst_port?.toString().includes(search);
+
+                const matchProtocol = !protocol || flow.protocol === protocol;
+                const matchWan = !wan || flow.wan_id?.toString() === wan;
+
+                return matchSearch && matchProtocol && matchWan;
+            });
+
+            displayFlows(filtered);
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function formatDuration(ms) {
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+
+            if (hours > 0) return `${hours}h ${minutes % 60}m`;
+            if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+            return `${seconds}s`;
+        }
+
+        // Load flows on page load
+        loadFlows();
+
+        // Auto-refresh every 5 seconds
+        setInterval(loadFlows, 5000);
+    </script>
+</body>
+</html>

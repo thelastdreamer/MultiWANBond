@@ -1,6 +1,8 @@
 package webui
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,6 +15,14 @@ import (
 	"github.com/thelastdreamer/MultiWANBond/pkg/protocol"
 )
 
+// Session represents a user session
+type Session struct {
+	ID        string
+	Username  string
+	CreatedAt time.Time
+	ExpiresAt time.Time
+}
+
 // Server provides web-based management interface
 type Server struct {
 	config *Config
@@ -20,6 +30,10 @@ type Server struct {
 
 	// HTTP server
 	httpServer *http.Server
+
+	// Session management
+	sessions   map[string]*Session
+	sessionMu  sync.RWMutex
 
 	// WebSocket clients
 	wsClients map[*WSClient]bool
@@ -64,8 +78,9 @@ func NewServer(config *Config) *Server {
 		config = DefaultConfig()
 	}
 
-	return &Server{
+	s := &Server{
 		config:      config,
+		sessions:    make(map[string]*Session),
 		wsClients:   make(map[*WSClient]bool),
 		eventChan:   make(chan *Event, 1000),
 		startTime:   time.Now(),
@@ -77,6 +92,11 @@ func NewServer(config *Config) *Server {
 			Alerts:     make([]Alert, 0),
 		},
 	}
+
+	// Start session cleanup goroutine
+	go s.cleanupExpiredSessions()
+
+	return s
 }
 
 // Start starts the web server
@@ -143,6 +163,11 @@ func (s *Server) Stop() error {
 
 // setupRoutes configures HTTP routes
 func (s *Server) setupRoutes(mux *http.ServeMux) {
+	// Authentication endpoints (no auth required)
+	mux.HandleFunc("/api/login", s.handleLogin)
+	mux.HandleFunc("/api/logout", s.handleLogout)
+	mux.HandleFunc("/api/session", s.handleSession)
+
 	// API endpoints
 	mux.HandleFunc("/api/dashboard", s.handleDashboard)
 	mux.HandleFunc("/api/wans", s.handleWANs)
@@ -786,10 +811,33 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		username, password, ok := r.BasicAuth()
-		if !ok || username != s.config.Username || password != s.config.Password {
-			w.Header().Set("WWW-Authenticate", `Basic realm="MultiWANBond"`)
-			s.sendError(w, "Unauthorized", http.StatusUnauthorized)
+		// Skip auth for login/logout/session endpoints
+		if r.URL.Path == "/api/login" || r.URL.Path == "/api/logout" || r.URL.Path == "/api/session" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Skip auth for login page
+		if r.URL.Path == "/login.html" || r.URL.Path == "/" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Check for session cookie
+		cookie, err := r.Cookie("session_id")
+		if err != nil || cookie.Value == "" {
+			http.Redirect(w, r, "/login.html", http.StatusSeeOther)
+			return
+		}
+
+		// Validate session
+		s.sessionMu.RLock()
+		session, exists := s.sessions[cookie.Value]
+		s.sessionMu.RUnlock()
+
+		if !exists || time.Now().After(session.ExpiresAt) {
+			// Session expired or invalid
+			http.Redirect(w, r, "/login.html", http.StatusSeeOther)
 			return
 		}
 
@@ -1086,4 +1134,183 @@ func fromWANConfig(wanCfg *WANConfig) config.WANInterfaceConfig {
 		Weight:              wanCfg.Weight,
 		Enabled:             wanCfg.Enabled,
 	}
+}
+
+// Session Management Methods
+
+// generateSessionID generates a random session ID
+func generateSessionID() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.URLEncoding.EncodeToString(b), nil
+}
+
+// createSession creates a new session for a user
+func (s *Server) createSession(username string) (*Session, error) {
+	sessionID, err := generateSessionID()
+	if err != nil {
+		return nil, err
+	}
+
+	session := &Session{
+		ID:        sessionID,
+		Username:  username,
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(24 * time.Hour), // 24 hour session
+	}
+
+	s.sessionMu.Lock()
+	s.sessions[sessionID] = session
+	s.sessionMu.Unlock()
+
+	return session, nil
+}
+
+// deleteSession removes a session
+func (s *Server) deleteSession(sessionID string) {
+	s.sessionMu.Lock()
+	delete(s.sessions, sessionID)
+	s.sessionMu.Unlock()
+}
+
+// cleanupExpiredSessions periodically removes expired sessions
+func (s *Server) cleanupExpiredSessions() {
+	ticker := time.NewTicker(1 * time.Hour)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		now := time.Now()
+		s.sessionMu.Lock()
+		for id, session := range s.sessions {
+			if now.After(session.ExpiresAt) {
+				delete(s.sessions, id)
+			}
+		}
+		s.sessionMu.Unlock()
+	}
+}
+
+// Session Management Handlers
+
+// handleLogin handles user login
+func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse login credentials
+	var credentials struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
+		s.sendError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate credentials
+	if credentials.Username != s.config.Username || credentials.Password != s.config.Password {
+		s.sendError(w, "Invalid credentials", http.StatusUnauthorized)
+		return
+	}
+
+	// Create session
+	session, err := s.createSession(credentials.Username)
+	if err != nil {
+		s.sendError(w, "Failed to create session", http.StatusInternalServerError)
+		return
+	}
+
+	// Set cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_id",
+		Value:    session.ID,
+		Path:     "/",
+		Expires:  session.ExpiresAt,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	// Return success
+	s.sendJSON(w, APIResponse{
+		Success: true,
+		Message: "Login successful",
+		Data: map[string]interface{}{
+			"username":  session.Username,
+			"expiresAt": session.ExpiresAt,
+		},
+	})
+}
+
+// handleLogout handles user logout
+func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get session cookie
+	cookie, err := r.Cookie("session_id")
+	if err == nil && cookie.Value != "" {
+		// Delete session
+		s.deleteSession(cookie.Value)
+	}
+
+	// Clear cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_id",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+	})
+
+	s.sendJSON(w, APIResponse{
+		Success: true,
+		Message: "Logout successful",
+	})
+}
+
+// handleSession checks if the current session is valid
+func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get session cookie
+	cookie, err := r.Cookie("session_id")
+	if err != nil || cookie.Value == "" {
+		s.sendJSON(w, APIResponse{
+			Success: false,
+			Message: "No active session",
+		})
+		return
+	}
+
+	// Check if session exists and is valid
+	s.sessionMu.RLock()
+	session, exists := s.sessions[cookie.Value]
+	s.sessionMu.RUnlock()
+
+	if !exists || time.Now().After(session.ExpiresAt) {
+		s.sendJSON(w, APIResponse{
+			Success: false,
+			Message: "Session expired",
+		})
+		return
+	}
+
+	s.sendJSON(w, APIResponse{
+		Success: true,
+		Message: "Session active",
+		Data: map[string]interface{}{
+			"username":  session.Username,
+			"expiresAt": session.ExpiresAt,
+		},
+	})
 }

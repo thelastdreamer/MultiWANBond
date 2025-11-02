@@ -60,6 +60,11 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
+        .header-nav button.active {
+            background: rgba(255, 255, 255, 0.4);
+            font-weight: 600;
+        }
+
         .alert-badge {
             background: #e74c3c;
             color: white;
@@ -385,11 +390,15 @@
                 </div>
             </div>
             <div class="header-nav">
-                <button onclick="location.href='dashboard.html'">Dashboard</button>
+                <button onclick="location.href='dashboard.html'" class="active">Dashboard</button>
+                <button onclick="location.href='flows.html'">Flows</button>
+                <button onclick="location.href='analytics.html'">Analytics</button>
+                <button onclick="location.href='logs.html'">Logs</button>
                 <button onclick="location.href='config.html'">Configuration</button>
                 <button onclick="showAlerts()">
                     Alerts <span class="alert-badge" id="alertCount" style="display:none;">0</span>
                 </button>
+                <button onclick="logout()" style="background: rgba(231, 76, 60, 0.8);">Logout</button>
             </div>
         </div>
     </div>
@@ -816,6 +825,40 @@
                 document.getElementById('currentSpeed').textContent = formatBytesPerSec(stats.current_bps);
             }
         }
+
+        // Session Management
+        function checkSession() {
+            fetch('/api/session')
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) {
+                        // Not logged in, redirect to login
+                        window.location.href = '/login.html';
+                    }
+                })
+                .catch(err => {
+                    console.error('Session check failed:', err);
+                    window.location.href = '/login.html';
+                });
+        }
+
+        async function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                try {
+                    await fetch('/api/logout', { method: 'POST' });
+                    window.location.href = '/login.html';
+                } catch (error) {
+                    console.error('Logout failed:', error);
+                    window.location.href = '/login.html';
+                }
+            }
+        }
+
+        // Check session on page load
+        checkSession();
+
+        // Check session periodically (every 5 minutes)
+        setInterval(checkSession, 5 * 60 * 1000);
     </script>
 </body>
 </html>

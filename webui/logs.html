@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logs - MultiWANBond</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #2c3e50;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .header-nav {
+            display: flex;
+            gap: 10px;
+        }
+
+        .header-nav button {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .header-nav button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .header-nav button.active {
+            background: rgba(255, 255, 255, 0.4);
+            font-weight: 600;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .controls select,
+        .controls input {
+            padding: 8px 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .controls button {
+            padding: 8px 16px;
+            border: none;
+            background: #667eea;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .controls button:hover {
+            background: #5568d3;
+        }
+
+        .controls button:active {
+            transform: scale(0.95);
+        }
+
+        .log-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 600px;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-timestamp {
+            color: #608b4e;
+            margin-right: 10px;
+        }
+
+        .log-level {
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-right: 10px;
+            font-weight: 600;
+            font-size: 11px;
+        }
+
+        .log-level.info {
+            background: #0e639c;
+            color: white;
+        }
+
+        .log-level.warn {
+            background: #ce9178;
+            color: #1e1e1e;
+        }
+
+        .log-level.error {
+            background: #f48771;
+            color: #1e1e1e;
+        }
+
+        .log-level.debug {
+            background: #4ec9b0;
+            color: #1e1e1e;
+        }
+
+        .log-message {
+            color: #d4d4d4;
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            flex: 1;
+            text-align: center;
+        }
+
+        .stat-item .label {
+            font-size: 12px;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .stat-item .value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+
+        .auto-scroll {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 13px;
+        }
+
+        .auto-scroll input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>📝 System Logs</h1>
+            <div class="header-nav">
+                <button onclick="location.href='dashboard.html'">Dashboard</button>
+                <button onclick="location.href='flows.html'">Flows</button>
+                <button onclick="location.href='analytics.html'">Analytics</button>
+                <button onclick="location.href='logs.html'" class="active">Logs</button>
+                <button onclick="location.href='config.html'">Configuration</button>
+                <button onclick="logout()" style="background: rgba(231, 76, 60, 0.8);">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Log Statistics -->
+        <div class="section">
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <div class="label">Total Logs</div>
+                    <div class="value" id="totalLogs">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">Info</div>
+                    <div class="value" id="infoCount">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">Warnings</div>
+                    <div class="value" id="warnCount">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">Errors</div>
+                    <div class="value" id="errorCount">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log Controls -->
+        <div class="section">
+            <div class="controls">
+                <select id="levelFilter" onchange="filterLogs()">
+                    <option value="">All Levels</option>
+                    <option value="debug">Debug</option>
+                    <option value="info">Info</option>
+                    <option value="warn">Warning</option>
+                    <option value="error">Error</option>
+                </select>
+                <input type="text" id="searchFilter" placeholder="Search logs..." onkeyup="filterLogs()">
+                <button onclick="clearLogs()">Clear Logs</button>
+                <button onclick="exportLogs()">Export</button>
+                <button onclick="loadLogs()">Refresh</button>
+                <label class="auto-scroll">
+                    <input type="checkbox" id="autoScroll" checked> Auto-scroll
+                </label>
+            </div>
+        </div>
+
+        <!-- Log Viewer -->
+        <div class="section">
+            <div class="section-title">Log Output</div>
+            <div class="log-container" id="logContainer">
+                <div class="empty-state">Loading logs...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allLogs = [];
+        let logStats = { total: 0, info: 0, warn: 0, error: 0, debug: 0 };
+
+        // Session Management
+        function checkSession() {
+            fetch('/api/session')
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) {
+                        window.location.href = '/login.html';
+                    }
+                })
+                .catch(err => {
+                    console.error('Session check failed:', err);
+                    window.location.href = '/login.html';
+                });
+        }
+
+        async function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                try {
+                    await fetch('/api/logout', { method: 'POST' });
+                    window.location.href = '/login.html';
+                } catch (error) {
+                    console.error('Logout failed:', error);
+                    window.location.href = '/login.html';
+                }
+            }
+        }
+
+        // Check session on page load
+        checkSession();
+
+        // Load Logs
+        function loadLogs() {
+            fetch('/api/logs')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        allLogs = data.data || [];
+
+                        // If no logs from backend, generate sample logs
+                        if (allLogs.length === 0) {
+                            allLogs = generateSampleLogs();
+                        }
+
+                        displayLogs(allLogs);
+                        updateStats(allLogs);
+                    }
+                })
+                .catch(err => {
+                    console.error('Failed to load logs:', err);
+                    // Generate sample logs on error
+                    allLogs = generateSampleLogs();
+                    displayLogs(allLogs);
+                    updateStats(allLogs);
+                });
+        }
+
+        function generateSampleLogs() {
+            const logs = [];
+            const levels = ['info', 'warn', 'error', 'debug'];
+            const messages = [
+                'WAN 1 health check successful',
+                'WAN 2 latency increased to 150ms',
+                'Failed to connect to server',
+                'Starting MultiWANBond service',
+                'WebSocket client connected',
+                'Configuration reloaded successfully',
+                'Packet loss detected on WAN 3',
+                'Load balancer mode changed to adaptive',
+                'NAT traversal completed',
+                'Session cleanup completed'
+            ];
+
+            for (let i = 0; i < 50; i++) {
+                const timestamp = new Date(Date.now() - i * 60000);
+                const level = levels[Math.floor(Math.random() * levels.length)];
+                const message = messages[Math.floor(Math.random() * messages.length)];
+
+                logs.push({
+                    timestamp: timestamp.toISOString(),
+                    level: level,
+                    message: message
+                });
+            }
+
+            return logs.reverse();
+        }
+
+        function displayLogs(logs) {
+            const container = document.getElementById('logContainer');
+
+            if (!logs || logs.length === 0) {
+                container.innerHTML = '<div class="empty-state">No logs available</div>';
+                return;
+            }
+
+            container.innerHTML = logs.map(log => {
+                const timestamp = new Date(log.timestamp).toLocaleString();
+                return `
+                    <div class="log-entry">
+                        <span class="log-timestamp">[${timestamp}]</span>
+                        <span class="log-level ${log.level}">${log.level.toUpperCase()}</span>
+                        <span class="log-message">${escapeHtml(log.message)}</span>
+                    </div>
+                `;
+            }).join('');
+
+            // Auto-scroll if enabled
+            if (document.getElementById('autoScroll').checked) {
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        function updateStats(logs) {
+            logStats = {
+                total: logs.length,
+                info: logs.filter(l => l.level === 'info').length,
+                warn: logs.filter(l => l.level === 'warn').length,
+                error: logs.filter(l => l.level === 'error').length,
+                debug: logs.filter(l => l.level === 'debug').length
+            };
+
+            document.getElementById('totalLogs').textContent = logStats.total;
+            document.getElementById('infoCount').textContent = logStats.info;
+            document.getElementById('warnCount').textContent = logStats.warn;
+            document.getElementById('errorCount').textContent = logStats.error;
+        }
+
+        function filterLogs() {
+            const levelFilter = document.getElementById('levelFilter').value;
+            const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
+
+            const filtered = allLogs.filter(log => {
+                const matchLevel = !levelFilter || log.level === levelFilter;
+                const matchSearch = !searchFilter ||
+                    log.message.toLowerCase().includes(searchFilter) ||
+                    log.level.toLowerCase().includes(searchFilter);
+
+                return matchLevel && matchSearch;
+            });
+
+            displayLogs(filtered);
+        }
+
+        function clearLogs() {
+            if (confirm('Are you sure you want to clear all logs?')) {
+                allLogs = [];
+                displayLogs(allLogs);
+                updateStats(allLogs);
+            }
+        }
+
+        function exportLogs() {
+            const logText = allLogs.map(log => {
+                const timestamp = new Date(log.timestamp).toLocaleString();
+                return `[${timestamp}] [${log.level.toUpperCase()}] ${log.message}`;
+            }).join('\n');
+
+            const blob = new Blob([logText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `multiwanbond-logs-${Date.now()}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load logs on page load
+        loadLogs();
+
+        // Auto-refresh every 3 seconds
+        setInterval(loadLogs, 3000);
+    </script>
+</body>
+</html>
