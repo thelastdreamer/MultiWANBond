@@ -406,13 +406,17 @@ Mission-critical connectivity:
 - **[NAT_DPI_INTEGRATION.md](NAT_DPI_INTEGRATION.md)** - NAT traversal and DPI integration details
 
 ### Operations & Deployment
-- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Production deployment guide (Linux, Windows, Docker) ✨ **NEW**
-- **[SECURITY.md](SECURITY.md)** - Security best practices and hardening guide ✨ **NEW**
-- **[PERFORMANCE.md](PERFORMANCE.md)** - Performance tuning and optimization guide ✨ **NEW**
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Production deployment guide (Linux, Windows, Docker)
+- **[SECURITY.md](SECURITY.md)** - Security best practices and hardening guide
+- **[PERFORMANCE.md](PERFORMANCE.md)** - Performance tuning and optimization guide
 - **[HOW_TO_RUN.md](HOW_TO_RUN.md)** - Running, testing, and development guide
 
+### Monitoring & Metrics
+- **[GRAFANA_SETUP.md](GRAFANA_SETUP.md)** - Grafana dashboard setup with Prometheus ✨ **NEW**
+- **[METRICS_GUIDE.md](METRICS_GUIDE.md)** - Complete metrics reference guide ✨ **NEW**
+
 ### Development
-- **[DEVELOPMENT.md](DEVELOPMENT.md)** - Developer and contributor guide ✨ **NEW**
+- **[DEVELOPMENT.md](DEVELOPMENT.md)** - Developer and contributor guide
 - **[GO_ENVIRONMENT_FIX.md](GO_ENVIRONMENT_FIX.md)** - Fixing Go environment issues
 
 ## 🌐 Web UI Access
@@ -755,12 +759,20 @@ For more issues, see:
   - Per-WAN traffic distribution
   - Latency comparison charts
   - Protocol breakdown charts
+- ✅ **Prometheus Metrics Endpoint** (November 2025)
+  - 12 comprehensive metrics (system, WAN, traffic, flows)
+  - Prometheus-compatible format
+  - Real-time monitoring
+  - Historical data retention
+- ✅ **Grafana Dashboard Templates** (November 2025)
+  - Pre-built dashboard JSON
+  - 10 visualization panels
+  - WAN status, latency, traffic, distribution charts
+  - Alert configuration examples
 
 ### 🚧 In Progress (v1.2)
 - 🚧 Windows/macOS policy routing support
-- 🚧 Prometheus metrics endpoint
-- 🚧 Grafana dashboard templates
-- 🚧 Historical data storage for analytics
+- 🚧 Historical data storage for analytics (long-term)
 
 ### 📋 Planned (v1.2+)
 - QUIC protocol support
