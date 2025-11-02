@@ -272,6 +272,18 @@ func (c *Classifier) GetStats() *DPIStats {
 	return &stats
 }
 
+// GetAllFlows returns all active flows
+func (c *Classifier) GetAllFlows() []*Flow {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	flows := make([]*Flow, 0, len(c.flows))
+	for _, flow := range c.flows {
+		flows = append(flows, flow)
+	}
+	return flows
+}
+
 // GetTopProtocols returns top N protocols by byte count
 func (c *Classifier) GetTopProtocols(n int) []Protocol {
 	c.mu.RLock()

@@ -450,7 +450,7 @@ func metricsUpdater(b *bonder.Bonder, server *webui.Server, interval time.Durati
 		// Update flows if DPI classifier is available
 		dpiClassifier := b.GetDPIClassifier()
 		if dpiClassifier != nil {
-			activeFlows := dpiClassifier.GetActiveFlows()
+			activeFlows := dpiClassifier.GetAllFlows()
 			flows := make([]webui.FlowInfo, 0, len(activeFlows))
 
 			for _, flow := range activeFlows {
