@@ -866,11 +866,11 @@
                     <div class="policy-info">
                         <h4>${policy.name}</h4>
                         <div class="policy-details">
-                            ${policy.description || ''} | Type: ${policy.type} | WAN ID: ${policy.wan_id} | Priority: ${policy.priority}
+                            ${policy.description || ''} | Type: ${policy.type} | Match: ${policy.match} | WAN: ${policy.target_wan} | Priority: ${policy.priority}
                         </div>
                     </div>
                     <div class="wan-actions">
-                        <button class="button button-danger" onclick="deletePolicy('${policy.name}')">Delete</button>
+                        <button class="button button-danger" onclick="deletePolicy(${policy.id}, '${policy.name}')">Delete</button>
                     </div>
                 </div>
             `).join('');
@@ -893,14 +893,24 @@
         function savePolicy(event) {
             event.preventDefault();
 
+            const policyType = document.getElementById('policy-type').value;
+
+            // Map type-specific fields to 'match' field
+            let matchValue = '';
+            if (policyType === 'source') {
+                matchValue = document.getElementById('policy-source').value;
+            } else if (policyType === 'destination') {
+                matchValue = document.getElementById('policy-destination').value;
+            } else if (policyType === 'application') {
+                matchValue = document.getElementById('policy-application').value;
+            }
+
             const data = {
                 name: document.getElementById('policy-name').value,
                 description: document.getElementById('policy-description').value,
-                type: document.getElementById('policy-type').value,
-                source: document.getElementById('policy-source').value,
-                destination: document.getElementById('policy-destination').value,
-                application: document.getElementById('policy-application').value,
-                wan_id: parseInt(document.getElementById('policy-wan-id').value),
+                type: policyType,
+                match: matchValue,
+                target_wan: parseInt(document.getElementById('policy-wan-id').value),
                 priority: parseInt(document.getElementById('policy-priority').value),
                 enabled: document.getElementById('policy-enabled').checked
             };
@@ -913,7 +923,7 @@
             .then(r => r.json())
             .then(result => {
                 if (result.success) {
-                    showAlert('Policy saved successfully', 'success');
+                    showAlert('Policy saved successfully (restart required)', 'success');
                     closeModal('policy-modal');
                     loadPolicies();
                 } else {
@@ -925,16 +935,16 @@
             return false;
         }
 
-        function deletePolicy(name) {
+        function deletePolicy(id, name) {
             if (!confirm(`Are you sure you want to delete policy "${name}"?`)) {
                 return;
             }
 
-            fetch(`/api/routing?name=${encodeURIComponent(name)}`, { method: 'DELETE' })
+            fetch(`/api/routing?id=${id}`, { method: 'DELETE' })
                 .then(r => r.json())
                 .then(result => {
                     if (result.success) {
-                        showAlert('Policy deleted successfully', 'success');
+                        showAlert('Policy deleted successfully (restart required)', 'success');
                         loadPolicies();
                     } else {
                         showAlert('Failed to delete policy', 'error');

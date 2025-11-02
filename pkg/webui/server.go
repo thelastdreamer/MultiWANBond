@@ -827,16 +827,18 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 
 			// WAN state (1 if active/healthy, 0 if down)
 			state := 0
-			if metrics.State == "active" || metrics.State == "healthy" {
+			if metrics != nil && (metrics.Latency > 0 || metrics.BytesSent > 0) {
 				state = 1
 			}
 			fmt.Fprintf(w, "multiwanbond_wan_state{wan_id=\"%s\",wan_name=\"%s\"} %d\n", wanIDStr, wanName, state)
 
 			// Latency
-			fmt.Fprintf(w, "multiwanbond_wan_latency_ms{wan_id=\"%s\",wan_name=\"%s\"} %.2f\n", wanIDStr, wanName, metrics.Latency)
+			latencyMs := float64(metrics.Latency.Milliseconds())
+		fmt.Fprintf(w, "multiwanbond_wan_latency_ms{wan_id=\"%s\",wan_name=\"%s\"} %.2f\n", wanIDStr, wanName, latencyMs)
 
 			// Jitter
-			fmt.Fprintf(w, "multiwanbond_wan_jitter_ms{wan_id=\"%s\",wan_name=\"%s\"} %.2f\n", wanIDStr, wanName, metrics.Jitter)
+			jitterMs := float64(metrics.Jitter.Milliseconds())
+		fmt.Fprintf(w, "multiwanbond_wan_jitter_ms{wan_id=\"%s\",wan_name=\"%s\"} %.2f\n", wanIDStr, wanName, jitterMs)
 
 			// Packet loss
 			fmt.Fprintf(w, "multiwanbond_wan_packet_loss{wan_id=\"%s\",wan_name=\"%s\"} %.2f\n", wanIDStr, wanName, metrics.PacketLoss)
@@ -859,17 +861,21 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "multiwanbond_alerts_total %d\n", len(metricsData.Alerts))
 	}
 
-	// Traffic statistics
-	if metricsData != nil && metricsData.TrafficStats != nil {
+	// Traffic statistics (aggregate from WANMetrics)
+	if metricsData != nil && len(metricsData.WANMetrics) > 0 {
+		var totalBytesSent uint64
+		var totalBytesReceived uint64
+		for _, metrics := range metricsData.WANMetrics {
+			if metrics != nil {
+				totalBytesSent += metrics.BytesSent
+				totalBytesReceived += metrics.BytesReceived
+			}
+		}
+
 		fmt.Fprintf(w, "# HELP multiwanbond_total_bytes_all Total bytes across all WANs\n")
 		fmt.Fprintf(w, "# TYPE multiwanbond_total_bytes_all counter\n")
-		fmt.Fprintf(w, "multiwanbond_total_bytes_all{direction=\"tx\"} %d\n", metricsData.TrafficStats.BytesSent)
-		fmt.Fprintf(w, "multiwanbond_total_bytes_all{direction=\"rx\"} %d\n", metricsData.TrafficStats.BytesReceived)
-
-		fmt.Fprintf(w, "# HELP multiwanbond_current_mbps Current throughput in Mbps\n")
-		fmt.Fprintf(w, "# TYPE multiwanbond_current_mbps gauge\n")
-		fmt.Fprintf(w, "multiwanbond_current_mbps{direction=\"tx\"} %.2f\n", metricsData.TrafficStats.CurrentUploadMbps)
-		fmt.Fprintf(w, "multiwanbond_current_mbps{direction=\"rx\"} %.2f\n", metricsData.TrafficStats.CurrentDownloadMbps)
+		fmt.Fprintf(w, "multiwanbond_total_bytes_all{direction=\"tx\"} %d\n", totalBytesSent)
+		fmt.Fprintf(w, "multiwanbond_total_bytes_all{direction=\"rx\"} %d\n", totalBytesReceived)
 	}
 }
 
